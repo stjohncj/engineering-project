@@ -3,7 +3,6 @@ FactoryBot.define do
     description { Faker::Commerce.product_name }
     amount { Faker::Number.decimal(l_digits: 3, r_digits: 2) }
     transaction_date { Faker::Date.between(from: 30.days.ago, to: Date.current) }
-    source { "manual" }
     status { "pending" }
     
     # Optional association - transaction can exist without category
@@ -33,9 +32,6 @@ FactoryBot.define do
       status { "rejected" }
     end
     
-    trait :csv_import do
-      source { "csv_import" }
-    end
     
     trait :large_amount do
       amount { Faker::Number.between(from: 10000.0, to: 50000.0).round(2) }
