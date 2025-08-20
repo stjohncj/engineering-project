@@ -205,7 +205,7 @@ class Api::V1::TransactionsController < ApplicationController
       # Queue the import job
       job_id = CsvImportJob.perform_later(
         temp_file.to_s,
-        current_user_id, # You'll need to implement current_user_id method
+        1, # Default user_id for now - implement proper authentication later
         run_anomaly_detection: params[:run_anomaly_detection] == 'true'
       ).job_id
       

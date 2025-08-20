@@ -6,6 +6,9 @@ class ApplicationController < ActionController::Base
   include PerformanceMonitoring
   include QueryCounter
   
+  # Skip CSRF protection for API endpoints
+  skip_before_action :verify_authenticity_token, if: -> { request.path.start_with?('/api/') }
+  
   # Enable CORS for API endpoints
   before_action :set_cors_headers, if: -> { request.path.start_with?('/api/') }
   
