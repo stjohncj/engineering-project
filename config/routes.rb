@@ -11,6 +11,7 @@ Rails.application.routes.draw do
         collection do
           patch :bulk_update
           post :import_csv
+          post 'import', to: 'transactions#import_csv'  # Alias for frontend
           get :anomalies
         end
       end

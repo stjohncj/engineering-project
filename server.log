@@ -1,0 +1,165 @@
+=> Booting Puma
+=> Rails 8.0.2.1 application starting in development 
+=> Run `bin/rails server --help` for more startup options
+Puma starting in single mode...
+* Puma version: 6.6.1 ("Return to Forever")
+* Ruby version: ruby 3.4.1 (2024-12-25 revision 48d4efcb85) +PRISM [x86_64-darwin23]
+*  Min threads: 3
+*  Max threads: 3
+*  Environment: development
+*          PID: 9680
+* Listening on http://0.0.0.0:3000
+Use Ctrl-C to stop
+Started HEAD "/" for 127.0.0.1 at 2025-08-20 16:53:30 -0500
+  [1m[36mActiveRecord::SchemaMigration Load (0.5ms)[0m  [1m[34mSELECT "schema_migrations"."version" FROM "schema_migrations" ORDER BY "schema_migrations"."version" ASC /*application='EngineeringProject'*/[0m
+Processing by DashboardController#index as */*
+  Rendering layout layouts/application.html.erb
+  Rendering dashboard/index.html.erb within layouts/application
+  Rendered dashboard/index.html.erb within layouts/application (Duration: 9.6ms | GC: 0.0ms)
+  Rendered layout layouts/application.html.erb (Duration: 13.5ms | GC: 0.0ms)
+Completed 200 OK in 437ms (Views: 18.8ms | ActiveRecord: 0.0ms (0 queries, 0 cached) | GC: 48.1ms)
+
+
+Started GET "/upload" for 127.0.0.1 at 2025-08-20 16:53:45 -0500
+Processing by DashboardController#upload as HTML
+  Rendering layout layouts/application.html.erb
+  Rendering dashboard/upload.html.erb within layouts/application
+  Rendered dashboard/upload.html.erb within layouts/application (Duration: 2.7ms | GC: 0.0ms)
+  Rendered layout layouts/application.html.erb (Duration: 3.2ms | GC: 0.0ms)
+Completed 200 OK in 70ms (Views: 3.5ms | ActiveRecord: 0.0ms (0 queries, 0 cached) | GC: 0.0ms)
+
+
+Started POST "/api/v1/transactions/import" for 127.0.0.1 at 2025-08-20 16:53:55 -0500
+  
+ActionController::RoutingError (No route matches [POST] "/api/v1/transactions/import"):
+  
+Started POST "/api/v1/transactions/import" for 127.0.0.1 at 2025-08-20 16:55:29 -0500
+Processing by Api::V1::TransactionsController#import_csv as JSON
+  Parameters: {"file" => #<ActionDispatch::Http::UploadedFile:0x0000000130b96000 @tempfile=#<Tempfile:/var/folders/m4/ykg5hczn4v933rny5k9t80640000gn/T/RackMultipart20250820-9680-yq93o5.csv>, @content_type="application/octet-stream", @original_filename="test_transactions.csv", @headers="Content-Disposition: form-data; name=\"file\"; filename=\"test_transactions.csv\"\r\nContent-Type: application/octet-stream\r\n">}
+  [1m[36mCategory Load (0.8ms)[0m  [1m[34mSELECT "categories".* FROM "categories" WHERE "categories"."name" = 'Food & Dining' LIMIT 1 /*action='import_csv',application='EngineeringProject',controller='transactions'*/[0m
+  ↳ app/services/csv_import_service.rb:175:in 'CsvImportService#find_or_create_category'
+  [1m[36mTransaction Exists? (1.4ms)[0m  [1m[34mSELECT 1 AS one FROM "transactions" WHERE "transactions"."duplicate_hash" = '76cb7c750a4c24511cb3e1b1b7683241f72e02b843662c3c420a11627377ce97' LIMIT 1 /*action='import_csv',application='EngineeringProject',controller='transactions'*/[0m
+  ↳ app/services/csv_import_service.rb:186:in 'CsvImportService#duplicate_exists?'
+  [1m[36mCategory Load (0.4ms)[0m  [1m[34mSELECT "categories".* FROM "categories" WHERE "categories"."name" = 'Bills & Utilities' LIMIT 1 /*action='import_csv',application='EngineeringProject',controller='transactions'*/[0m
+  ↳ app/services/csv_import_service.rb:175:in 'CsvImportService#find_or_create_category'
+  [1m[36mTransaction Exists? (0.3ms)[0m  [1m[34mSELECT 1 AS one FROM "transactions" WHERE "transactions"."duplicate_hash" = 'df27021ecb4c9ba391be1acc5be95a9a725dc1169f6704664d75f65fd0d8a0bc' LIMIT 1 /*action='import_csv',application='EngineeringProject',controller='transactions'*/[0m
+  ↳ app/services/csv_import_service.rb:186:in 'CsvImportService#duplicate_exists?'
+  [1m[36mCategory Load (0.2ms)[0m  [1m[34mSELECT "categories".* FROM "categories" WHERE "categories"."name" = 'Shopping' LIMIT 1 /*action='import_csv',application='EngineeringProject',controller='transactions'*/[0m
+  ↳ app/services/csv_import_service.rb:175:in 'CsvImportService#find_or_create_category'
+  [1m[36mTransaction Exists? (0.2ms)[0m  [1m[34mSELECT 1 AS one FROM "transactions" WHERE "transactions"."duplicate_hash" = '058aa91b5537284c19c7f81983fce79b0e589bd263983c13c3b740c6ba6147de' LIMIT 1 /*action='import_csv',application='EngineeringProject',controller='transactions'*/[0m
+  ↳ app/services/csv_import_service.rb:186:in 'CsvImportService#duplicate_exists?'
+  [1m[36mCategory Load (0.3ms)[0m  [1m[34mSELECT "categories".* FROM "categories" WHERE "categories"."name" = 'Transportation' LIMIT 1 /*action='import_csv',application='EngineeringProject',controller='transactions'*/[0m
+  ↳ app/services/csv_import_service.rb:175:in 'CsvImportService#find_or_create_category'
+  [1m[36mTransaction Exists? (0.2ms)[0m  [1m[34mSELECT 1 AS one FROM "transactions" WHERE "transactions"."duplicate_hash" = 'b7bdf496ca6f7524b3b8dde06da5b668bc43c999e0fe5cc4981aaee8ae842b64' LIMIT 1 /*action='import_csv',application='EngineeringProject',controller='transactions'*/[0m
+  ↳ app/services/csv_import_service.rb:186:in 'CsvImportService#duplicate_exists?'
+  [1m[36mCategory Load (0.2ms)[0m  [1m[34mSELECT "categories".* FROM "categories" WHERE "categories"."name" = 'Entertainment' LIMIT 1 /*action='import_csv',application='EngineeringProject',controller='transactions'*/[0m
+  ↳ app/services/csv_import_service.rb:175:in 'CsvImportService#find_or_create_category'
+  [1m[36mTransaction Exists? (0.2ms)[0m  [1m[34mSELECT 1 AS one FROM "transactions" WHERE "transactions"."duplicate_hash" = '4f54059edca0cafa270ef0ee7c41215f1149a2f623967439a42dddabb3efe3e0' LIMIT 1 /*action='import_csv',application='EngineeringProject',controller='transactions'*/[0m
+  ↳ app/services/csv_import_service.rb:186:in 'CsvImportService#duplicate_exists?'
+  [1m[36mCategory Load (0.2ms)[0m  [1m[34mSELECT "categories".* FROM "categories" WHERE "categories"."name" = 'Income' LIMIT 1 /*action='import_csv',application='EngineeringProject',controller='transactions'*/[0m
+  ↳ app/services/csv_import_service.rb:175:in 'CsvImportService#find_or_create_category'
+  [1m[36mTransaction Exists? (0.2ms)[0m  [1m[34mSELECT 1 AS one FROM "transactions" WHERE "transactions"."duplicate_hash" = 'a89d6120d0ecbaeed4839b88bbe6786c7d32fb045a03d16c181c0905a8af3c79' LIMIT 1 /*action='import_csv',application='EngineeringProject',controller='transactions'*/[0m
+  ↳ app/services/csv_import_service.rb:186:in 'CsvImportService#duplicate_exists?'
+  [1m[36mCACHE Category Load (0.0ms)[0m  [1m[34mSELECT "categories".* FROM "categories" WHERE "categories"."name" = 'Food & Dining' LIMIT 1[0m
+  ↳ app/services/csv_import_service.rb:175:in 'CsvImportService#find_or_create_category'
+  [1m[36mTransaction Exists? (0.2ms)[0m  [1m[34mSELECT 1 AS one FROM "transactions" WHERE "transactions"."duplicate_hash" = '4861fbaf9b06ae5921f36ab4f49947dfa614a1de70410580f058f253b4b7eaa0' LIMIT 1 /*action='import_csv',application='EngineeringProject',controller='transactions'*/[0m
+  ↳ app/services/csv_import_service.rb:186:in 'CsvImportService#duplicate_exists?'
+  [1m[36mTransaction Exists? (0.2ms)[0m  [1m[34mSELECT 1 AS one FROM "transactions" WHERE "transactions"."duplicate_hash" = '8d1044e734004f8d721157c8f07123fee37303d0e301b7c74655934799e39204' LIMIT 1 /*action='import_csv',application='EngineeringProject',controller='transactions'*/[0m
+  ↳ app/services/csv_import_service.rb:186:in 'CsvImportService#duplicate_exists?'
+  [1m[36mCACHE Category Load (0.0ms)[0m  [1m[34mSELECT "categories".* FROM "categories" WHERE "categories"."name" = 'Entertainment' LIMIT 1[0m
+  ↳ app/services/csv_import_service.rb:175:in 'CsvImportService#find_or_create_category'
+  [1m[36mTransaction Exists? (0.2ms)[0m  [1m[34mSELECT 1 AS one FROM "transactions" WHERE "transactions"."duplicate_hash" = '612fcfa7e5932332721fa79a2e7a0e4977b9293c03d807e8adffe70b9426314c' LIMIT 1 /*action='import_csv',application='EngineeringProject',controller='transactions'*/[0m
+  ↳ app/services/csv_import_service.rb:186:in 'CsvImportService#duplicate_exists?'
+  [1m[36mCACHE Category Load (0.0ms)[0m  [1m[34mSELECT "categories".* FROM "categories" WHERE "categories"."name" = 'Transportation' LIMIT 1[0m
+  ↳ app/services/csv_import_service.rb:175:in 'CsvImportService#find_or_create_category'
+  [1m[36mTransaction Exists? (0.2ms)[0m  [1m[34mSELECT 1 AS one FROM "transactions" WHERE "transactions"."duplicate_hash" = 'ec792fc673f70528ce0b056678b690e9d08b0d2a83647df5405fe45f4871065c' LIMIT 1 /*action='import_csv',application='EngineeringProject',controller='transactions'*/[0m
+  ↳ app/services/csv_import_service.rb:186:in 'CsvImportService#duplicate_exists?'
+HIGH_QUERY_COUNT: transactions#import_csv executed 19 queries (threshold: 10)
+QUERY_DETAILS for transactions#import_csv:
+  1. [0.76ms] Category Load: SELECT "categories".* FROM "categories" WHERE "categories"."name" = 'Food & Dining' LIMIT 1 /*action='import_csv',application='EngineeringProject',controller='transactions'*/
+  2. [1.34ms] Transaction Exists?: SELECT 1 AS one FROM "transactions" WHERE "transactions"."duplicate_hash" = '76cb7c750a4c24511cb3e1b1b7683241f72e02b843662c3c420a11627377ce97' LIMIT 1 /*action='import_csv',application='Engineering...
+  3. [0.35ms] Category Load: SELECT "categories".* FROM "categories" WHERE "categories"."name" = 'Bills & Utilities' LIMIT 1 /*action='import_csv',application='EngineeringProject',controller='transactions'*/
+  4. [0.27ms] Transaction Exists?: SELECT 1 AS one FROM "transactions" WHERE "transactions"."duplicate_hash" = 'df27021ecb4c9ba391be1acc5be95a9a725dc1169f6704664d75f65fd0d8a0bc' LIMIT 1 /*action='import_csv',application='Engineering...
+  5. [0.23ms] Category Load: SELECT "categories".* FROM "categories" WHERE "categories"."name" = 'Shopping' LIMIT 1 /*action='import_csv',application='EngineeringProject',controller='transactions'*/
+  6. [0.22ms] Transaction Exists?: SELECT 1 AS one FROM "transactions" WHERE "transactions"."duplicate_hash" = '058aa91b5537284c19c7f81983fce79b0e589bd263983c13c3b740c6ba6147de' LIMIT 1 /*action='import_csv',application='Engineering...
+  7. [0.28ms] Category Load: SELECT "categories".* FROM "categories" WHERE "categories"."name" = 'Transportation' LIMIT 1 /*action='import_csv',application='EngineeringProject',controller='transactions'*/
+  8. [0.24ms] Transaction Exists?: SELECT 1 AS one FROM "transactions" WHERE "transactions"."duplicate_hash" = 'b7bdf496ca6f7524b3b8dde06da5b668bc43c999e0fe5cc4981aaee8ae842b64' LIMIT 1 /*action='import_csv',application='Engineering...
+  9. [0.22ms] Category Load: SELECT "categories".* FROM "categories" WHERE "categories"."name" = 'Entertainment' LIMIT 1 /*action='import_csv',application='EngineeringProject',controller='transactions'*/
+  10. [0.22ms] Transaction Exists?: SELECT 1 AS one FROM "transactions" WHERE "transactions"."duplicate_hash" = '4f54059edca0cafa270ef0ee7c41215f1149a2f623967439a42dddabb3efe3e0' LIMIT 1 /*action='import_csv',application='Engineering...
+  11. [0.21ms] Category Load: SELECT "categories".* FROM "categories" WHERE "categories"."name" = 'Income' LIMIT 1 /*action='import_csv',application='EngineeringProject',controller='transactions'*/
+  12. [0.22ms] Transaction Exists?: SELECT 1 AS one FROM "transactions" WHERE "transactions"."duplicate_hash" = 'a89d6120d0ecbaeed4839b88bbe6786c7d32fb045a03d16c181c0905a8af3c79' LIMIT 1 /*action='import_csv',application='Engineering...
+  13. [0.02ms] Category Load: SELECT "categories".* FROM "categories" WHERE "categories"."name" = 'Food & Dining' LIMIT 1
+  14. [0.21ms] Transaction Exists?: SELECT 1 AS one FROM "transactions" WHERE "transactions"."duplicate_hash" = '4861fbaf9b06ae5921f36ab4f49947dfa614a1de70410580f058f253b4b7eaa0' LIMIT 1 /*action='import_csv',application='Engineering...
+  15. [0.21ms] Transaction Exists?: SELECT 1 AS one FROM "transactions" WHERE "transactions"."duplicate_hash" = '8d1044e734004f8d721157c8f07123fee37303d0e301b7c74655934799e39204' LIMIT 1 /*action='import_csv',application='Engineering...
+  16. [0.01ms] Category Load: SELECT "categories".* FROM "categories" WHERE "categories"."name" = 'Entertainment' LIMIT 1
+  17. [0.21ms] Transaction Exists?: SELECT 1 AS one FROM "transactions" WHERE "transactions"."duplicate_hash" = '612fcfa7e5932332721fa79a2e7a0e4977b9293c03d807e8adffe70b9426314c' LIMIT 1 /*action='import_csv',application='Engineering...
+  18. [0.01ms] Category Load: SELECT "categories".* FROM "categories" WHERE "categories"."name" = 'Transportation' LIMIT 1
+  19. [0.21ms] Transaction Exists?: SELECT 1 AS one FROM "transactions" WHERE "transactions"."duplicate_hash" = 'ec792fc673f70528ce0b056678b690e9d08b0d2a83647df5405fe45f4871065c' LIMIT 1 /*action='import_csv',application='Engineering...
+Completed 200 OK in 238ms (Views: 0.1ms | ActiveRecord: 16.9ms (19 queries, 3 cached) | GC: 0.0ms)
+
+
+Started POST "/api/v1/transactions/import" for 127.0.0.1 at 2025-08-20 16:55:47 -0500
+Processing by Api::V1::TransactionsController#import_csv as JSON
+  Parameters: {"file" => #<ActionDispatch::Http::UploadedFile:0x000000013141fd20 @tempfile=#<Tempfile:/var/folders/m4/ykg5hczn4v933rny5k9t80640000gn/T/RackMultipart20250820-9680-fdxief.csv>, @content_type="application/octet-stream", @original_filename="test_transactions.csv", @headers="Content-Disposition: form-data; name=\"file\"; filename=\"test_transactions.csv\"\r\nContent-Type: application/octet-stream\r\n">}
+  [1m[36mCategory Load (0.2ms)[0m  [1m[34mSELECT "categories".* FROM "categories" WHERE "categories"."name" = 'Food & Dining' LIMIT 1 /*action='import_csv',application='EngineeringProject',controller='transactions'*/[0m
+  ↳ app/services/csv_import_service.rb:175:in 'CsvImportService#find_or_create_category'
+  [1m[36mTransaction Exists? (0.2ms)[0m  [1m[34mSELECT 1 AS one FROM "transactions" WHERE "transactions"."duplicate_hash" = '76cb7c750a4c24511cb3e1b1b7683241f72e02b843662c3c420a11627377ce97' LIMIT 1 /*action='import_csv',application='EngineeringProject',controller='transactions'*/[0m
+  ↳ app/services/csv_import_service.rb:186:in 'CsvImportService#duplicate_exists?'
+  [1m[36mCategory Load (0.2ms)[0m  [1m[34mSELECT "categories".* FROM "categories" WHERE "categories"."name" = 'Bills & Utilities' LIMIT 1 /*action='import_csv',application='EngineeringProject',controller='transactions'*/[0m
+  ↳ app/services/csv_import_service.rb:175:in 'CsvImportService#find_or_create_category'
+  [1m[36mTransaction Exists? (0.2ms)[0m  [1m[34mSELECT 1 AS one FROM "transactions" WHERE "transactions"."duplicate_hash" = 'df27021ecb4c9ba391be1acc5be95a9a725dc1169f6704664d75f65fd0d8a0bc' LIMIT 1 /*action='import_csv',application='EngineeringProject',controller='transactions'*/[0m
+  ↳ app/services/csv_import_service.rb:186:in 'CsvImportService#duplicate_exists?'
+  [1m[36mCategory Load (0.2ms)[0m  [1m[34mSELECT "categories".* FROM "categories" WHERE "categories"."name" = 'Shopping' LIMIT 1 /*action='import_csv',application='EngineeringProject',controller='transactions'*/[0m
+  ↳ app/services/csv_import_service.rb:175:in 'CsvImportService#find_or_create_category'
+  [1m[36mTransaction Exists? (0.2ms)[0m  [1m[34mSELECT 1 AS one FROM "transactions" WHERE "transactions"."duplicate_hash" = '058aa91b5537284c19c7f81983fce79b0e589bd263983c13c3b740c6ba6147de' LIMIT 1 /*action='import_csv',application='EngineeringProject',controller='transactions'*/[0m
+  ↳ app/services/csv_import_service.rb:186:in 'CsvImportService#duplicate_exists?'
+  [1m[36mCategory Load (0.2ms)[0m  [1m[34mSELECT "categories".* FROM "categories" WHERE "categories"."name" = 'Transportation' LIMIT 1 /*action='import_csv',application='EngineeringProject',controller='transactions'*/[0m
+  ↳ app/services/csv_import_service.rb:175:in 'CsvImportService#find_or_create_category'
+  [1m[36mTransaction Exists? (0.2ms)[0m  [1m[34mSELECT 1 AS one FROM "transactions" WHERE "transactions"."duplicate_hash" = 'b7bdf496ca6f7524b3b8dde06da5b668bc43c999e0fe5cc4981aaee8ae842b64' LIMIT 1 /*action='import_csv',application='EngineeringProject',controller='transactions'*/[0m
+  ↳ app/services/csv_import_service.rb:186:in 'CsvImportService#duplicate_exists?'
+  [1m[36mCategory Load (0.2ms)[0m  [1m[34mSELECT "categories".* FROM "categories" WHERE "categories"."name" = 'Entertainment' LIMIT 1 /*action='import_csv',application='EngineeringProject',controller='transactions'*/[0m
+  ↳ app/services/csv_import_service.rb:175:in 'CsvImportService#find_or_create_category'
+  [1m[36mTransaction Exists? (0.2ms)[0m  [1m[34mSELECT 1 AS one FROM "transactions" WHERE "transactions"."duplicate_hash" = '4f54059edca0cafa270ef0ee7c41215f1149a2f623967439a42dddabb3efe3e0' LIMIT 1 /*action='import_csv',application='EngineeringProject',controller='transactions'*/[0m
+  ↳ app/services/csv_import_service.rb:186:in 'CsvImportService#duplicate_exists?'
+  [1m[36mCategory Load (0.4ms)[0m  [1m[34mSELECT "categories".* FROM "categories" WHERE "categories"."name" = 'Income' LIMIT 1 /*action='import_csv',application='EngineeringProject',controller='transactions'*/[0m
+  ↳ app/services/csv_import_service.rb:175:in 'CsvImportService#find_or_create_category'
+  [1m[36mTransaction Exists? (0.3ms)[0m  [1m[34mSELECT 1 AS one FROM "transactions" WHERE "transactions"."duplicate_hash" = 'a89d6120d0ecbaeed4839b88bbe6786c7d32fb045a03d16c181c0905a8af3c79' LIMIT 1 /*action='import_csv',application='EngineeringProject',controller='transactions'*/[0m
+  ↳ app/services/csv_import_service.rb:186:in 'CsvImportService#duplicate_exists?'
+  [1m[36mCACHE Category Load (0.0ms)[0m  [1m[34mSELECT "categories".* FROM "categories" WHERE "categories"."name" = 'Food & Dining' LIMIT 1[0m
+  ↳ app/services/csv_import_service.rb:175:in 'CsvImportService#find_or_create_category'
+  [1m[36mTransaction Exists? (0.2ms)[0m  [1m[34mSELECT 1 AS one FROM "transactions" WHERE "transactions"."duplicate_hash" = '4861fbaf9b06ae5921f36ab4f49947dfa614a1de70410580f058f253b4b7eaa0' LIMIT 1 /*action='import_csv',application='EngineeringProject',controller='transactions'*/[0m
+  ↳ app/services/csv_import_service.rb:186:in 'CsvImportService#duplicate_exists?'
+  [1m[36mTransaction Exists? (0.2ms)[0m  [1m[34mSELECT 1 AS one FROM "transactions" WHERE "transactions"."duplicate_hash" = '8d1044e734004f8d721157c8f07123fee37303d0e301b7c74655934799e39204' LIMIT 1 /*action='import_csv',application='EngineeringProject',controller='transactions'*/[0m
+  ↳ app/services/csv_import_service.rb:186:in 'CsvImportService#duplicate_exists?'
+  [1m[36mCACHE Category Load (0.0ms)[0m  [1m[34mSELECT "categories".* FROM "categories" WHERE "categories"."name" = 'Entertainment' LIMIT 1[0m
+  ↳ app/services/csv_import_service.rb:175:in 'CsvImportService#find_or_create_category'
+  [1m[36mTransaction Exists? (0.2ms)[0m  [1m[34mSELECT 1 AS one FROM "transactions" WHERE "transactions"."duplicate_hash" = '612fcfa7e5932332721fa79a2e7a0e4977b9293c03d807e8adffe70b9426314c' LIMIT 1 /*action='import_csv',application='EngineeringProject',controller='transactions'*/[0m
+  ↳ app/services/csv_import_service.rb:186:in 'CsvImportService#duplicate_exists?'
+  [1m[36mCACHE Category Load (0.0ms)[0m  [1m[34mSELECT "categories".* FROM "categories" WHERE "categories"."name" = 'Transportation' LIMIT 1[0m
+  ↳ app/services/csv_import_service.rb:175:in 'CsvImportService#find_or_create_category'
+  [1m[36mTransaction Exists? (0.3ms)[0m  [1m[34mSELECT 1 AS one FROM "transactions" WHERE "transactions"."duplicate_hash" = 'ec792fc673f70528ce0b056678b690e9d08b0d2a83647df5405fe45f4871065c' LIMIT 1 /*action='import_csv',application='EngineeringProject',controller='transactions'*/[0m
+  ↳ app/services/csv_import_service.rb:186:in 'CsvImportService#duplicate_exists?'
+HIGH_QUERY_COUNT: transactions#import_csv executed 19 queries (threshold: 10)
+QUERY_DETAILS for transactions#import_csv:
+  1. [0.19ms] Category Load: SELECT "categories".* FROM "categories" WHERE "categories"."name" = 'Food & Dining' LIMIT 1 /*action='import_csv',application='EngineeringProject',controller='transactions'*/
+  2. [0.2ms] Transaction Exists?: SELECT 1 AS one FROM "transactions" WHERE "transactions"."duplicate_hash" = '76cb7c750a4c24511cb3e1b1b7683241f72e02b843662c3c420a11627377ce97' LIMIT 1 /*action='import_csv',application='Engineering...
+  3. [0.18ms] Category Load: SELECT "categories".* FROM "categories" WHERE "categories"."name" = 'Bills & Utilities' LIMIT 1 /*action='import_csv',application='EngineeringProject',controller='transactions'*/
+  4. [0.22ms] Transaction Exists?: SELECT 1 AS one FROM "transactions" WHERE "transactions"."duplicate_hash" = 'df27021ecb4c9ba391be1acc5be95a9a725dc1169f6704664d75f65fd0d8a0bc' LIMIT 1 /*action='import_csv',application='Engineering...
+  5. [0.21ms] Category Load: SELECT "categories".* FROM "categories" WHERE "categories"."name" = 'Shopping' LIMIT 1 /*action='import_csv',application='EngineeringProject',controller='transactions'*/
+  6. [0.18ms] Transaction Exists?: SELECT 1 AS one FROM "transactions" WHERE "transactions"."duplicate_hash" = '058aa91b5537284c19c7f81983fce79b0e589bd263983c13c3b740c6ba6147de' LIMIT 1 /*action='import_csv',application='Engineering...
+  7. [0.23ms] Category Load: SELECT "categories".* FROM "categories" WHERE "categories"."name" = 'Transportation' LIMIT 1 /*action='import_csv',application='EngineeringProject',controller='transactions'*/
+  8. [0.18ms] Transaction Exists?: SELECT 1 AS one FROM "transactions" WHERE "transactions"."duplicate_hash" = 'b7bdf496ca6f7524b3b8dde06da5b668bc43c999e0fe5cc4981aaee8ae842b64' LIMIT 1 /*action='import_csv',application='Engineering...
+  9. [0.17ms] Category Load: SELECT "categories".* FROM "categories" WHERE "categories"."name" = 'Entertainment' LIMIT 1 /*action='import_csv',application='EngineeringProject',controller='transactions'*/
+  10. [0.22ms] Transaction Exists?: SELECT 1 AS one FROM "transactions" WHERE "transactions"."duplicate_hash" = '4f54059edca0cafa270ef0ee7c41215f1149a2f623967439a42dddabb3efe3e0' LIMIT 1 /*action='import_csv',application='Engineering...
+  11. [0.37ms] Category Load: SELECT "categories".* FROM "categories" WHERE "categories"."name" = 'Income' LIMIT 1 /*action='import_csv',application='EngineeringProject',controller='transactions'*/
+  12. [0.32ms] Transaction Exists?: SELECT 1 AS one FROM "transactions" WHERE "transactions"."duplicate_hash" = 'a89d6120d0ecbaeed4839b88bbe6786c7d32fb045a03d16c181c0905a8af3c79' LIMIT 1 /*action='import_csv',application='Engineering...
+  13. [0.01ms] Category Load: SELECT "categories".* FROM "categories" WHERE "categories"."name" = 'Food & Dining' LIMIT 1
+  14. [0.2ms] Transaction Exists?: SELECT 1 AS one FROM "transactions" WHERE "transactions"."duplicate_hash" = '4861fbaf9b06ae5921f36ab4f49947dfa614a1de70410580f058f253b4b7eaa0' LIMIT 1 /*action='import_csv',application='Engineering...
+  15. [0.18ms] Transaction Exists?: SELECT 1 AS one FROM "transactions" WHERE "transactions"."duplicate_hash" = '8d1044e734004f8d721157c8f07123fee37303d0e301b7c74655934799e39204' LIMIT 1 /*action='import_csv',application='Engineering...
+  16. [0.01ms] Category Load: SELECT "categories".* FROM "categories" WHERE "categories"."name" = 'Entertainment' LIMIT 1
+  17. [0.19ms] Transaction Exists?: SELECT 1 AS one FROM "transactions" WHERE "transactions"."duplicate_hash" = '612fcfa7e5932332721fa79a2e7a0e4977b9293c03d807e8adffe70b9426314c' LIMIT 1 /*action='import_csv',application='Engineering...
+  18. [0.01ms] Category Load: SELECT "categories".* FROM "categories" WHERE "categories"."name" = 'Transportation' LIMIT 1
+  19. [0.26ms] Transaction Exists?: SELECT 1 AS one FROM "transactions" WHERE "transactions"."duplicate_hash" = 'ec792fc673f70528ce0b056678b690e9d08b0d2a83647df5405fe45f4871065c' LIMIT 1 /*action='import_csv',application='Engineering...
+Completed 200 OK in 88ms (Views: 0.1ms | ActiveRecord: 6.4ms (19 queries, 3 cached) | GC: 0.0ms)
+
+

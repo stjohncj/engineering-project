@@ -182,12 +182,24 @@ class Api::V1::TransactionsController < ApplicationController
   def import_csv_sync
     begin
       result = CsvImportService.new(params[:file]).import
+      
+      # Format response to match frontend expectations
+      processed_count = result[:imported] + result[:failed]
+      duplicate_count = result[:errors]&.count { |error| error.include?("Duplicate") } || 0
+      error_count = result[:failed] - duplicate_count
+      
       render json: {
         message: "CSV import completed",
+        processed_count: processed_count,
+        imported_count: result[:imported],
+        duplicate_count: duplicate_count,
+        error_count: error_count,
+        anomaly_count: 0, # TODO: Implement anomaly detection count
+        batch_id: result[:batch_id],
+        # Keep original format for backward compatibility
         imported: result[:imported],
         failed: result[:failed],
-        errors: result[:errors],
-        batch_id: result[:batch_id]
+        errors: result[:errors]
       }
     rescue => e
       render json: { error: e.message }, status: :unprocessable_entity
