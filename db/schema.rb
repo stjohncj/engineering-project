@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.0].define(version: 2025_08_20_195449) do
+ActiveRecord::Schema[8.0].define(version: 2025_08_20_200000) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "pg_catalog.plpgsql"
 
@@ -25,6 +25,8 @@ ActiveRecord::Schema[8.0].define(version: 2025_08_20_195449) do
     t.json "metadata"
     t.datetime "detected_at"
     t.datetime "resolved_at"
+    t.index ["resolved", "severity", "created_at"], name: "index_anomaly_detections_on_resolved_severity_created"
+    t.index ["transaction_record_id", "resolved"], name: "index_anomaly_detections_on_transaction_and_resolved"
     t.index ["transaction_record_id"], name: "index_anomaly_detections_on_transaction_record_id"
   end
 
@@ -34,6 +36,7 @@ ActiveRecord::Schema[8.0].define(version: 2025_08_20_195449) do
     t.string "color"
     t.datetime "created_at", null: false
     t.datetime "updated_at", null: false
+    t.index ["name"], name: "index_categories_on_name_unique", unique: true
   end
 
   create_table "rules", force: :cascade do |t|
@@ -46,6 +49,7 @@ ActiveRecord::Schema[8.0].define(version: 2025_08_20_195449) do
     t.boolean "active"
     t.datetime "created_at", null: false
     t.datetime "updated_at", null: false
+    t.index ["active", "created_at"], name: "index_rules_on_active_and_created"
   end
 
   create_table "transactions", force: :cascade do |t|
@@ -59,12 +63,19 @@ ActiveRecord::Schema[8.0].define(version: 2025_08_20_195449) do
     t.string "duplicate_hash"
     t.datetime "created_at", null: false
     t.datetime "updated_at", null: false
+    t.index "to_tsvector('english'::regconfig, (description)::text)", name: "index_transactions_description_fulltext", using: :gin
+    t.index ["amount", "transaction_date"], name: "index_transactions_on_amount_and_date"
+    t.index ["amount"], name: "index_transactions_large_amounts", where: "(amount > (1000)::numeric)"
     t.index ["amount"], name: "index_transactions_on_amount"
+    t.index ["category_id", "transaction_date"], name: "index_transactions_on_category_and_date"
     t.index ["category_id"], name: "index_transactions_on_category_id"
     t.index ["duplicate_hash"], name: "index_transactions_on_duplicate_hash"
     t.index ["import_batch_id"], name: "index_transactions_on_import_batch_id"
+    t.index ["status", "created_at"], name: "index_transactions_on_status_and_created_at"
     t.index ["status"], name: "index_transactions_on_status"
+    t.index ["transaction_date", "status"], name: "index_transactions_on_date_and_status"
     t.index ["transaction_date"], name: "index_transactions_on_transaction_date"
+    t.index ["transaction_date"], name: "index_transactions_uncategorized_by_date", where: "(category_id IS NULL)"
   end
 
   add_foreign_key "anomaly_detections", "transactions", column: "transaction_record_id"

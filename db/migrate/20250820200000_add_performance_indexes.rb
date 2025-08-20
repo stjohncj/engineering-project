@@ -1,4 +1,6 @@
 class AddPerformanceIndexes < ActiveRecord::Migration[8.0]
+  disable_ddl_transaction!
+  
   def change
     # Composite indexes for common query patterns
     add_index :transactions, [:transaction_date, :status], name: 'index_transactions_on_date_and_status'
