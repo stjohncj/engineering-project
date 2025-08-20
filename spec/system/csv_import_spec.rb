@@ -61,8 +61,10 @@ RSpec.describe 'CSV Import', type: :system do
       # Wait for import to complete
       sleep(3)
       
-      # Should show result message (success or error due to API)
-      expect(page).to have_css('.result-message')
+      # Should show SUCCESS result with proper data
+      expect(page).to have_css('.result-success', text: 'Successfully processed')
+      expect(page).to have_content('✅ Imported:')
+      expect(page).to have_content('🔄 Duplicates skipped:').or have_content('❌ Errors:')
     end
 
     it 'shows import progress', js: true do
@@ -111,8 +113,9 @@ RSpec.describe 'CSV Import', type: :system do
       # Wait for processing
       sleep(3)
       
-      # Should show some result message
-      expect(page).to have_css('.result-message')
+      # Should show detailed error information, not just any message
+      expect(page).to have_css('.result-error, .result-warning')
+      expect(page).to have_content('error').or have_content('invalid')
     end
 
     it 'validates file selection before import', js: true do
@@ -163,6 +166,112 @@ RSpec.describe 'CSV Import', type: :system do
     end
   end
 
+  describe 'API integration and error handling' do
+    let(:csv_file_path) { Rails.root.join('tmp', 'api_test.csv') }
+
+    before do
+      File.write(csv_file_path, csv_content)
+      
+      visit '/upload'
+      sleep(2) # Wait for React to load
+    end
+
+    after do
+      File.delete(csv_file_path) if File.exist?(csv_file_path)
+    end
+
+    it 'frontend calls the correct API endpoint', js: true do
+      # This test would have caught the route mismatch!
+      # Monitor network requests to ensure frontend calls the right endpoint
+      
+      find('.file-input', visible: false).set(csv_file_path)
+      
+      # Intercept fetch calls to verify the endpoint
+      page.execute_script("
+        window.fetchCalls = [];
+        const originalFetch = window.fetch;
+        window.fetch = function(url, options) {
+          window.fetchCalls.push({url: url, method: options?.method});
+          return originalFetch(url, options);
+        };
+      ")
+      
+      click_button '🚀 Import Transactions'
+      sleep(3)
+      
+      # Verify the frontend called the correct endpoint
+      fetch_calls = page.evaluate_script("window.fetchCalls")
+      import_call = fetch_calls.find { |call| call['url'].include?('import') && call['method'] == 'POST' }
+      
+      expect(import_call).not_to be_nil, "No POST request to import endpoint found"
+      expect(import_call['url']).to include('/api/v1/transactions/import')
+      
+      # Most importantly: Should NOT result in routing errors
+      expect(page).not_to have_content('No route matches')
+      expect(page).not_to have_content('ActionController::RoutingError')
+    end
+
+    it 'successfully calls the API and receives JSON response', js: true do
+      find('.file-input', visible: false).set(csv_file_path)
+      
+      click_button '🚀 Import Transactions'
+      
+      # Wait for API call to complete
+      sleep(3)
+      
+      # Should NOT show network error or HTML parsing errors
+      expect(page).not_to have_content('Network error occurred during upload')
+      expect(page).not_to have_content('Unexpected token')
+      expect(page).not_to have_content('<!DOCTYPE')
+      
+      # Should show proper result message (success, error, or warning)
+      expect(page).to have_css('.result-message')
+      
+      # Should show structured response data
+      expect(page).to have_content('processed').or have_content('imported').or have_content('error')
+    end
+
+    it 'handles network failures gracefully', js: true do
+      # Simulate network failure by stopping the server temporarily
+      page.execute_script("
+        const originalFetch = window.fetch;
+        window.fetch = function() {
+          return Promise.reject(new Error('Network connection failed'));
+        };
+      ")
+      
+      find('.file-input', visible: false).set(csv_file_path)
+      click_button '🚀 Import Transactions'
+      
+      sleep(3)
+      
+      # Should show network error message
+      expect(page).to have_css('.result-error')
+      expect(page).to have_content('Network error').or have_content('connection failed')
+      
+      # Restore fetch for other tests
+      page.execute_script("window.fetch = originalFetch;")
+    end
+
+    it 'validates API response format', js: true do
+      find('.file-input', visible: false).set(csv_file_path)
+      
+      click_button '🚀 Import Transactions'
+      
+      sleep(3)
+      
+      # Should show structured data from API response
+      if page.has_css?('.result-success')
+        # Check for expected response fields
+        expect(page).to have_content('✅ Imported:').or have_content('🔄 Duplicates skipped:')
+      elsif page.has_css?('.result-error')
+        # Should show meaningful error, not JSON parsing errors
+        expect(page).not_to have_content('Unexpected token')
+        expect(page).not_to have_content('JSON.parse')
+      end
+    end
+  end
+
   describe 'import results display' do
     let(:csv_file_path) { Rails.root.join('tmp', 'results_test.csv') }
 
@@ -185,9 +294,36 @@ RSpec.describe 'CSV Import', type: :system do
       # Wait for import to complete
       sleep(3)
       
-      # Should show detailed results if successful
-      if page.has_content?('Successfully processed')
-        expect(page).to have_content('✅ Imported:').or have_content('transactions')
+      # Should show structured results with counts
+      expect(page).to have_css('.result-message')
+      
+      if page.has_css?('.result-success')
+        expect(page).to have_content('Successfully processed')
+        expect(page).to have_content('✅ Imported:')
+      end
+    end
+
+    it 'shows detailed error information on failure', js: true do
+      # Create invalid data that will cause server-side errors
+      invalid_content = "invalid,data,format\nno,proper,headers"
+      invalid_path = Rails.root.join('tmp', 'server_error_test.csv')
+      File.write(invalid_path, invalid_content)
+      
+      begin
+        find('.file-input', visible: false).set(invalid_path)
+        
+        click_button '🚀 Import Transactions'
+        sleep(3)
+        
+        # Should show meaningful error details
+        if page.has_css?('.result-error')
+          expect(page).to have_content('error').or have_content('failed')
+          # Should NOT show raw HTML or parsing errors
+          expect(page).not_to have_content('<!DOCTYPE')
+          expect(page).not_to have_content('Unexpected token')
+        end
+      ensure
+        File.delete(invalid_path) if File.exist?(invalid_path)
       end
     end
   end
