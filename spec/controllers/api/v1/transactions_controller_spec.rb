@@ -1,6 +1,12 @@
 require 'rails_helper'
 
 RSpec.describe Api::V1::TransactionsController, type: :controller do
+  include ActiveJob::TestHelper
+
+  before do
+    # Clear cache before each test
+    Rails.cache.clear
+  end
   let(:valid_attributes) do
     {
       description: 'Test Transaction',
@@ -35,7 +41,23 @@ RSpec.describe Api::V1::TransactionsController, type: :controller do
       get :index
       json = JSON.parse(response.body)
       expect(json).to have_key('pagination')
-      expect(json['pagination']).to include('current_page', 'per_page', 'total_count')
+      expect(json['pagination']).to include('current_page', 'per_page', 'total_count', 'total_pages', 'next_page', 'prev_page')
+    end
+
+    it 'caches the response for 2 minutes' do
+      expect(Rails.cache).to receive(:fetch).with(
+        a_string_starting_with("transactions_index_"),
+        expires_in: 2.minutes
+      ).and_call_original
+
+      get :index
+      expect(response.headers['Cache-Control']).to include('public')
+    end
+
+    it 'sets appropriate HTTP cache headers' do
+      get :index
+      expect(response.headers['Cache-Control']).to include('max-age=300')
+      expect(response.headers['Vary']).to include('Accept', 'Authorization')
     end
 
     context 'with filters' do
@@ -137,6 +159,14 @@ RSpec.describe Api::V1::TransactionsController, type: :controller do
         json = JSON.parse(response.body)
         expect(json['transaction']['description']).to eq('Test Transaction')
       end
+
+      it 'invalidates transaction caches' do
+        expect(Rails.cache).to receive(:delete).with("dashboard_statistics")
+        expect(Rails.cache).to receive(:delete).with("recent_transactions")
+        expect(Rails.cache).to receive(:delete_matched).with("transactions_index_*")
+
+        post :create, params: { transaction: valid_attributes }
+      end
     end
 
     context 'with invalid parameters' do
@@ -187,6 +217,14 @@ RSpec.describe Api::V1::TransactionsController, type: :controller do
         patch :update, params: { id: transaction.to_param, transaction: new_attributes }
         expect(response).to be_successful
       end
+
+      it 'invalidates transaction caches' do
+        expect(Rails.cache).to receive(:delete).with("dashboard_statistics")
+        expect(Rails.cache).to receive(:delete).with("recent_transactions")
+        expect(Rails.cache).to receive(:delete_matched).with("transactions_index_*")
+
+        patch :update, params: { id: transaction.to_param, transaction: new_attributes }
+      end
     end
 
     context 'with invalid parameters' do
@@ -212,11 +250,11 @@ RSpec.describe Api::V1::TransactionsController, type: :controller do
     end
   end
 
-  describe 'POST #import' do
+  describe 'POST #import_csv' do
     let(:csv_file) do
       file = Tempfile.new(['test', '.csv'])
-      file.write("date,description,amount,category\n")
-      file.write("2024-01-15,Test Transaction,-50.00,Test\n")
+      file.write("amount,description,date,category\n")
+      file.write("100.50,Test Transaction,2025-08-19,Food\n")
       file.rewind
       file
     end
@@ -231,46 +269,86 @@ RSpec.describe Api::V1::TransactionsController, type: :controller do
 
     after { csv_file.close! }
 
-    it 'imports transactions from CSV' do
-      expect {
-        post :import, params: { file: uploaded_file }
-      }.to change(Transaction, :count).by(1)
+    context 'synchronous import' do
+      it 'imports transactions from CSV' do
+        expect {
+          post :import_csv, params: { file: uploaded_file }
+        }.to change(Transaction, :count).by(1)
+      end
+
+      it 'returns import results' do
+        post :import_csv, params: { file: uploaded_file }
+        json = JSON.parse(response.body)
+        expect(json).to include('message', 'imported', 'failed', 'errors', 'batch_id')
+      end
+
+      it 'processes CSV import synchronously by default' do
+        expect(CsvImportService).to receive(:new).and_call_original
+        expect(CsvImportJob).not_to receive(:perform_later)
+
+        post :import_csv, params: { file: uploaded_file }
+      end
     end
 
-    it 'returns import results' do
-      post :import, params: { file: uploaded_file }
-      json = JSON.parse(response.body)
-      expect(json).to include('processed_count', 'imported_count', 'error_count')
+    context 'asynchronous import' do
+      it 'queues CSV import job for background processing' do
+        expect {
+          post :import_csv, params: { file: uploaded_file, async: 'true' }
+        }.to enqueue_job(CsvImportJob)
+      end
+
+      it 'returns accepted status for async import' do
+        post :import_csv, params: { file: uploaded_file, async: 'true' }
+        expect(response).to have_http_status(:accepted)
+      end
+
+      it 'returns job information for async import' do
+        post :import_csv, params: { file: uploaded_file, async: 'true' }
+        json = JSON.parse(response.body)
+        expect(json).to include('message', 'job_id', 'status')
+        expect(json['status']).to eq('queued')
+      end
+
+      it 'creates temporary file for async processing' do
+        expect(File).to receive(:open).and_call_original
+        expect(CsvImportJob).to receive(:perform_later).with(
+          a_string_including('csv_import_'),
+          'anonymous',
+          run_anomaly_detection: false
+        ).and_return(double(job_id: 'test-job-123'))
+
+        post :import_csv, params: { file: uploaded_file, async: 'true' }
+      end
+
+      it 'passes anomaly detection option to job' do
+        expect(CsvImportJob).to receive(:perform_later).with(
+          any_args,
+          run_anomaly_detection: true
+        ).and_return(double(job_id: 'test-job-123'))
+
+        post :import_csv, params: { file: uploaded_file, async: 'true', run_anomaly_detection: 'true' }
+      end
     end
 
     context 'without file' do
-      it 'returns bad request' do
-        post :import
-        expect(response).to have_http_status(:bad_request)
+      it 'returns unprocessable entity' do
+        post :import_csv
+        expect(response).to have_http_status(:unprocessable_entity)
+        json = JSON.parse(response.body)
+        expect(json['error']).to eq('No CSV file provided')
       end
     end
 
-    context 'with invalid file type' do
-      let(:text_file) do
-        file = Tempfile.new(['test', '.txt'])
-        file.write("This is not a CSV file")
-        file.rewind
-        file
+    context 'when import service fails' do
+      before do
+        allow_any_instance_of(CsvImportService).to receive(:import).and_raise(StandardError, 'Import failed')
       end
 
-      let(:uploaded_text_file) do
-        ActionDispatch::Http::UploadedFile.new(
-          tempfile: text_file,
-          filename: 'test.txt',
-          type: 'text/plain'
-        )
-      end
-
-      after { text_file.close! }
-
-      it 'returns bad request for non-CSV files' do
-        post :import, params: { file: uploaded_text_file }
-        expect(response).to have_http_status(:bad_request)
+      it 'returns error response' do
+        post :import_csv, params: { file: uploaded_file }
+        expect(response).to have_http_status(:unprocessable_entity)
+        json = JSON.parse(response.body)
+        expect(json['error']).to eq('Import failed')
       end
     end
   end
@@ -281,7 +359,7 @@ RSpec.describe Api::V1::TransactionsController, type: :controller do
 
     it 'updates multiple transactions' do
       patch :bulk_update, params: { 
-        ids: transaction_ids, 
+        transaction_ids: transaction_ids, 
         updates: { status: 'approved' } 
       }
       
@@ -291,52 +369,64 @@ RSpec.describe Api::V1::TransactionsController, type: :controller do
 
     it 'returns success response' do
       patch :bulk_update, params: { 
-        ids: transaction_ids, 
+        transaction_ids: transaction_ids, 
         updates: { status: 'approved' } 
       }
       
       expect(response).to be_successful
     end
 
-    it 'returns updated count' do
+    it 'returns updated transactions and message' do
       patch :bulk_update, params: { 
-        ids: transaction_ids, 
+        transaction_ids: transaction_ids, 
         updates: { status: 'approved' } 
       }
       
       json = JSON.parse(response.body)
-      expect(json['updated_count']).to eq(3)
+      expect(json['message']).to include('3 transactions updated successfully')
+      expect(json['transactions']).to be_an(Array)
+      expect(json['transactions'].length).to eq(3)
     end
 
     context 'with non-existent IDs' do
       it 'ignores non-existent transactions' do
         patch :bulk_update, params: { 
-          ids: [999999, transaction_ids.first], 
+          transaction_ids: [999999, transaction_ids.first], 
           updates: { status: 'approved' } 
         }
         
         json = JSON.parse(response.body)
-        expect(json['updated_count']).to eq(1)
+        expect(json['message']).to include('1 transactions updated successfully')
       end
     end
   end
 
   describe 'GET #anomalies' do
-    let!(:flagged_transaction) { create(:transaction, :flagged) }
-    let!(:normal_transaction) { create(:transaction, :approved) }
+    let!(:transaction_with_anomaly) { create(:transaction) }
+    let!(:normal_transaction) { create(:transaction) }
+    let!(:anomaly) { create(:anomaly_detection, transaction_record: transaction_with_anomaly) }
 
-    it 'returns only flagged transactions' do
+    it 'returns only transactions with anomalies' do
       get :anomalies
       json = JSON.parse(response.body)
       expect(json['transactions'].length).to eq(1)
-      expect(json['transactions'].first['status']).to eq('flagged')
+      transaction_ids = json['transactions'].map { |t| t['id'] }
+      expect(transaction_ids).to include(transaction_with_anomaly.id)
+      expect(transaction_ids).not_to include(normal_transaction.id)
     end
 
     it 'includes anomaly details' do
-      anomaly = create(:anomaly_detection, transaction: flagged_transaction)
       get :anomalies
       json = JSON.parse(response.body)
       expect(json['transactions'].first['anomalies']).to be_present
+      expect(json['transactions'].first['anomalies'].first['id']).to eq(anomaly.id)
+    end
+
+    it 'eager loads associations' do
+      expect(Transaction).to receive(:with_anomalies).and_call_original
+      expect_any_instance_of(ActiveRecord::Relation).to receive(:includes).with(:category, :anomaly_detections).and_call_original
+
+      get :anomalies
     end
   end
 end

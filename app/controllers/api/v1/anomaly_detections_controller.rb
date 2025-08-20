@@ -1,29 +1,35 @@
 class Api::V1::AnomalyDetectionsController < ApplicationController
+  include Paginatable
+  
   before_action :set_anomaly_detection, only: [:show, :update, :resolve]
   
   def index
-    @anomaly_detections = AnomalyDetection.includes(:transaction_record)
+    # Cache anomaly detections for 3 minutes
+    cache_key = "anomaly_detections_index_#{Digest::MD5.hexdigest(params.to_query)}"
     
-    # Filtering
-    @anomaly_detections = @anomaly_detections.where(resolved: false) if params[:unresolved] == 'true'
-    @anomaly_detections = @anomaly_detections.by_severity(params[:severity]) if params[:severity].present?
-    @anomaly_detections = @anomaly_detections.by_type(params[:anomaly_type]) if params[:anomaly_type].present?
+    result = Rails.cache.fetch(cache_key, expires_in: 3.minutes) do
+      # Build query with eager loading
+      @anomaly_detections = AnomalyDetection.includes(transaction_record: :category)
+      
+      # Apply filters efficiently
+      @anomaly_detections = @anomaly_detections.where(resolved: false) if params[:unresolved] == 'true'
+      @anomaly_detections = @anomaly_detections.by_severity(params[:severity]) if params[:severity].present?
+      @anomaly_detections = @anomaly_detections.by_type(params[:anomaly_type]) if params[:anomaly_type].present?
+      
+      # Order by priority (severity desc, then creation time)
+      @anomaly_detections = @anomaly_detections.order(severity: :desc, created_at: :desc)
+      
+      # Paginate efficiently
+      paginated_anomalies = paginate_collection(@anomaly_detections)
+      
+      paginated_json(
+        paginated_anomalies.map { |ad| anomaly_detection_json(ad) },
+        data_key: :anomaly_detections
+      )
+    end
     
-    # Pagination
-    page = params[:page]&.to_i || 1
-    per_page = [params[:per_page]&.to_i || 50, 100].min
-    offset = (page - 1) * per_page
-    
-    @anomaly_detections = @anomaly_detections.offset(offset).limit(per_page).order(severity: :desc, created_at: :desc)
-    
-    render json: {
-      anomaly_detections: @anomaly_detections.map { |ad| anomaly_detection_json(ad) },
-      pagination: {
-        current_page: page,
-        per_page: per_page,
-        total_count: AnomalyDetection.count
-      }
-    }
+    expires_in 3.minutes, public: true
+    render json: result
   end
   
   def show

@@ -14,10 +14,19 @@ class AnomalyDetection < ApplicationRecord
   validates :severity, presence: true, inclusion: { in: 1..5 }
   validates :description, presence: true
   
+  # Optimized scopes using indexed columns
   scope :unresolved, -> { where(resolved: false) }
   scope :resolved, -> { where(resolved: true) }
   scope :by_severity, ->(severity) { where(severity: severity) }
   scope :by_type, ->(type) { where(anomaly_type: type) }
+  scope :high_priority, -> { where(severity: 4..5) }
+  scope :recent, -> { order(created_at: :desc) }
+  scope :by_priority, -> { order(severity: :desc, created_at: :desc) }
+  
+  # Performance optimized scopes for analytics
+  scope :count_by_type, -> { group(:anomaly_type).count }
+  scope :count_by_severity, -> { group(:severity).count }
+  scope :count_unresolved_by_type, -> { unresolved.group(:anomaly_type).count }
   
   before_create :set_detected_at
   

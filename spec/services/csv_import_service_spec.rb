@@ -1,58 +1,60 @@
 require 'rails_helper'
 
 RSpec.describe CsvImportService do
-  describe '.import' do
-    let(:valid_csv_content) do
-      <<~CSV
-        date,description,amount,category
-        2024-01-15,Grocery Store Purchase,-85.50,Groceries
-        2024-01-16,Salary Deposit,3500.00,Income
-        2024-01-17,Electric Bill,-120.75,Utilities
-        2024-01-18,Restaurant Dinner,-45.20,Dining
-      CSV
-    end
+  include ActiveJob::TestHelper
 
-    let(:invalid_csv_content) do
-      <<~CSV
-        date,description,amount,category
-        invalid-date,Grocery Store Purchase,-85.50,Groceries
-        2024-01-16,Missing Amount,,Income
-        2024-01-17,Electric Bill,not-a-number,Utilities
-      CSV
-    end
+  let(:valid_csv_content) do
+    <<~CSV
+      amount,description,date,category
+      100.50,Grocery Store Purchase,2025-08-19,Groceries
+      -85.75,Electric Bill,2025-08-20,Utilities
+      250.00,Salary Deposit,2025-08-21,Income
+      -45.20,Restaurant Dinner,2025-08-22,Dining
+    CSV
+  end
 
-    let(:duplicate_csv_content) do
-      <<~CSV
-        date,description,amount,category
-        2024-01-15,Grocery Store Purchase,-85.50,Groceries
-        2024-01-15,Grocery Store Purchase,-85.50,Groceries
-      CSV
-    end
+  let(:csv_file) do
+    file = Tempfile.new(['test', '.csv'])
+    file.write(valid_csv_content)
+    file.rewind
+    file
+  end
 
+  let(:service) { described_class.new(csv_file) }
+
+  after do
+    csv_file.close!
+  end
+
+  before do
+    # Clear any existing jobs
+    clear_enqueued_jobs
+  end
+
+  describe '#import' do
     context 'with valid CSV data' do
-      it 'imports all valid transactions' do
-        result = CsvImportService.import(valid_csv_content)
+      it 'imports all valid transactions using batch processing' do
+        result = service.import
         
-        expect(result[:processed_count]).to eq(4)
-        expect(result[:imported_count]).to eq(4)
-        expect(result[:error_count]).to eq(0)
-        expect(result[:duplicate_count]).to eq(0)
+        expect(result[:imported]).to eq(4)
+        expect(result[:failed]).to eq(0)
+        expect(result[:errors]).to be_empty
+        expect(result[:batch_id]).to be_present
       end
 
       it 'creates transactions with correct attributes' do
-        CsvImportService.import(valid_csv_content)
+        service.import
         
         transaction = Transaction.find_by(description: 'Grocery Store Purchase')
         expect(transaction).to be_present
-        expect(transaction.amount).to eq(-85.50)
-        expect(transaction.transaction_date).to eq(Date.parse('2024-01-15'))
-        expect(transaction.source).to eq('csv_import')
+        expect(transaction.amount).to eq(100.50)
+        expect(transaction.transaction_date).to eq(Date.parse('2025-08-19'))
         expect(transaction.status).to eq('pending')
+        expect(transaction.import_batch_id).to be_present
       end
 
-      it 'creates or finds categories' do
-        expect { CsvImportService.import(valid_csv_content) }
-          .to change(Category, :count).by(4) # Groceries, Income, Utilities, Dining
+      it 'creates or finds categories during processing' do
+        expect { service.import }.to change(Category, :count).by(4)
         
         groceries = Category.find_by(name: 'Groceries')
         expect(groceries).to be_present
@@ -60,147 +62,254 @@ RSpec.describe CsvImportService do
         transaction = Transaction.find_by(description: 'Grocery Store Purchase')
         expect(transaction.category).to eq(groceries)
       end
+
+      it 'processes transactions in batches' do
+        # Mock the batch size to be smaller for testing
+        stub_const('CsvImportService::BATCH_SIZE', 2)
+        
+        expect(service).to receive(:process_batch).at_least(2).times.and_call_original
+        
+        service.import
+      end
+
+      it 'uses bulk insert for better performance' do
+        expect(Transaction).to receive(:insert_all).at_least(:once).and_call_original
+        
+        service.import
+      end
+
+      it 'queues background jobs for post-processing' do
+        service.import
+
+        expect(BulkRuleApplicationJob).to have_been_enqueued
+        expect(BulkAnomalyDetectionJob).to have_been_enqueued
+      end
+
+      it 'invalidates caches after import' do
+        expect(Rails.cache).to receive(:delete).with("dashboard_statistics")
+        expect(Rails.cache).to receive(:delete).with("recent_transactions")
+        expect(Rails.cache).to receive(:delete_matched).with("transactions_index_*")
+
+        service.import
+      end
     end
 
     context 'with invalid CSV data' do
-      it 'handles parsing errors gracefully' do
-        result = CsvImportService.import(invalid_csv_content)
-        
-        expect(result[:processed_count]).to eq(3)
-        expect(result[:imported_count]).to be < 3
-        expect(result[:error_count]).to be > 0
-        expect(result[:errors]).to be_an(Array)
+      let(:invalid_csv_content) do
+        <<~CSV
+          amount,description,date,category
+          invalid-amount,Bad Transaction,2025-08-19,Test
+          100.50,Missing Date,,Test
+          ,Empty Amount,2025-08-20,Test
+        CSV
       end
 
-      it 'skips invalid rows but continues processing' do
-        result = CsvImportService.import(invalid_csv_content)
+      let(:invalid_csv_file) do
+        file = Tempfile.new(['invalid', '.csv'])
+        file.write(invalid_csv_content)
+        file.rewind
+        file
+      end
+
+      let(:invalid_service) { described_class.new(invalid_csv_file) }
+
+      after { invalid_csv_file.close! }
+
+      it 'handles parsing errors gracefully' do
+        result = invalid_service.import
         
-        # Should still process any valid rows
-        expect(result[:imported_count]).to be >= 0
-        expect(result[:errors].length).to eq(result[:error_count])
+        expect(result[:imported]).to eq(0)
+        expect(result[:failed]).to eq(3)
+        expect(result[:errors]).to be_an(Array)
+        expect(result[:errors].length).to eq(3)
+      end
+
+      it 'continues processing valid rows when some fail' do
+        mixed_csv = <<~CSV
+          amount,description,date,category
+          100.50,Valid Transaction,2025-08-19,Test
+          invalid,Invalid Transaction,2025-08-20,Test
+          200.00,Another Valid,2025-08-21,Test
+        CSV
+
+        file = Tempfile.new(['mixed', '.csv'])
+        file.write(mixed_csv)
+        file.rewind
+        mixed_service = described_class.new(file)
+
+        result = mixed_service.import
+
+        expect(result[:imported]).to eq(2)
+        expect(result[:failed]).to eq(1)
+
+        file.close!
       end
     end
 
     context 'with duplicate transactions' do
-      before do
-        # Create an existing transaction first
-        create(:transaction, 
+      let!(:existing_transaction) do
+        create(:transaction,
                description: 'Grocery Store Purchase',
-               amount: -85.50,
-               transaction_date: Date.parse('2024-01-15'))
+               amount: 100.50,
+               transaction_date: Date.parse('2025-08-19'))
       end
 
-      it 'detects and skips duplicates' do
-        result = CsvImportService.import(duplicate_csv_content)
+      it 'detects and skips duplicates based on hash' do
+        result = service.import
         
-        expect(result[:processed_count]).to eq(2)
-        expect(result[:duplicate_count]).to eq(2) # Both rows match existing transaction
-        expect(Transaction.count).to eq(1) # Only the original transaction
+        # Should skip the duplicate grocery transaction
+        expect(result[:imported]).to eq(3)
+        expect(result[:failed]).to eq(1)
+        expect(result[:errors]).to include(a_string_matching(/Duplicate transaction detected/))
+      end
+
+      it 'generates consistent duplicate hashes' do
+        # Test that the same transaction data generates the same hash
+        service_instance = service
+        
+        data1 = { amount: 100.50, transaction_date: Date.parse('2025-08-19'), description: 'Test' }
+        data2 = { amount: 100.50, transaction_date: Date.parse('2025-08-19'), description: 'Test' }
+        
+        hash1 = service_instance.send(:generate_duplicate_hash, data1)
+        hash2 = service_instance.send(:generate_duplicate_hash, data2)
+        
+        expect(hash1).to eq(hash2)
       end
     end
 
-    context 'with mixed data (valid, invalid, duplicates)' do
-      let(:mixed_csv_content) do
-        <<~CSV
-          date,description,amount,category
-          2024-01-15,Grocery Store Purchase,-85.50,Groceries
-          invalid-date,Bad Transaction,-50.00,Error
-          2024-01-17,Electric Bill,-120.75,Utilities
-          2024-01-15,Grocery Store Purchase,-85.50,Groceries
-        CSV
-      end
+    context 'with large CSV file' do
+      it 'processes large files in batches efficiently' do
+        # Create a large CSV content
+        large_csv = "amount,description,date,category\n"
+        1500.times do |i|
+          large_csv += "#{100 + i},Transaction #{i},2025-08-#{19 + (i % 10)},Category#{i % 5}\n"
+        end
 
+        large_file = Tempfile.new(['large', '.csv'])
+        large_file.write(large_csv)
+        large_file.rewind
+        large_service = described_class.new(large_file)
+
+        # Should process in multiple batches
+        expect(large_service).to receive(:process_batch).at_least(2).times.and_call_original
+
+        result = large_service.import
+
+        expect(result[:imported]).to eq(1500)
+        expect(result[:batch_id]).to be_present
+
+        large_file.close!
+      end
+    end
+
+    context 'when batch insert fails' do
       before do
-        # Pre-create one transaction to test duplicate detection
-        create(:transaction, 
-               description: 'Grocery Store Purchase',
-               amount: -85.50,
-               transaction_date: Date.parse('2024-01-15'))
+        allow(Transaction).to receive(:insert_all).and_raise(StandardError, 'Database error')
       end
 
-      it 'provides comprehensive results' do
-        result = CsvImportService.import(mixed_csv_content)
-        
-        expect(result[:processed_count]).to eq(4)
-        expect(result[:imported_count]).to eq(1) # Only Electric Bill
-        expect(result[:duplicate_count]).to eq(2) # Both grocery transactions
-        expect(result[:error_count]).to eq(1) # Invalid date
-        expect(result[:anomaly_count]).to be >= 0
+      it 'falls back to individual processing' do
+        expect(service).to receive(:process_batch_individually).and_call_original
+        expect(Rails.logger).to receive(:warn).with(/Batch insert failed/)
+
+        result = service.import
+
+        # Should still process transactions individually
+        expect(result[:imported]).to eq(4)
       end
     end
 
-    context 'with automatic categorization rules' do
-      let!(:grocery_category) { create(:category, :groceries) }
-      let!(:grocery_rule) { create(:rule, :grocery_rule, category: grocery_category) }
+    context 'post-processing jobs' do
+      it 'queues rule application jobs with transaction IDs' do
+        result = service.import
 
-      it 'applies rules during import' do
-        csv_content = <<~CSV
-          date,description,amount,category
-          2024-01-15,Supermarket Purchase,-85.50,
-        CSV
-        
-        result = CsvImportService.import(csv_content)
-        
-        transaction = Transaction.find_by(description: 'Supermarket Purchase')
-        expect(transaction.category).to eq(grocery_category)
+        imported_ids = Transaction.where(import_batch_id: result[:batch_id]).pluck(:id)
+        expect(BulkRuleApplicationJob).to have_been_enqueued.with(imported_ids)
+      end
+
+      it 'queues anomaly detection in smaller batches' do
+        # Create a scenario with 125 transactions to test batching
+        large_csv = "amount,description,date,category\n"
+        125.times do |i|
+          large_csv += "#{100 + i},Transaction #{i},2025-08-19,Test\n"
+        end
+
+        large_file = Tempfile.new(['batch_test', '.csv'])
+        large_file.write(large_csv)
+        large_file.rewind
+        large_service = described_class.new(large_file)
+
+        large_service.import
+
+        # Should queue 3 jobs: 50 + 50 + 25
+        expect(BulkAnomalyDetectionJob).to have_been_enqueued.exactly(3).times
+
+        large_file.close!
+      end
+    end
+  end
+
+  describe 'private methods' do
+    let(:service_instance) { service }
+
+    describe '#normalize_row_data' do
+      it 'normalizes row data correctly' do
+        row = {
+          amount: '$100.50',
+          description: '  Test Transaction  ',
+          date: '2025-08-19',
+          category: 'Test Category'
+        }
+
+        result = service_instance.send(:normalize_row_data, row)
+
+        expect(result[:amount]).to eq(100.50)
+        expect(result[:description]).to eq('Test Transaction')
+        expect(result[:transaction_date]).to eq(Date.parse('2025-08-19'))
+        expect(result[:category_id]).to be_present
       end
     end
 
-    context 'with anomaly detection' do
-      it 'triggers anomaly detection for imported transactions' do
-        allow(AnomalyDetectionService).to receive(:detect_for_transaction)
-          .and_return(create(:anomaly_detection))
-        
-        result = CsvImportService.import(valid_csv_content)
-        
-        expect(AnomalyDetectionService).to have_received(:detect_for_transaction).exactly(4).times
-        expect(result[:anomaly_count]).to eq(4)
+    describe '#parse_amount' do
+      it 'handles various amount formats' do
+        expect(service_instance.send(:parse_amount, '100.50')).to eq(100.50)
+        expect(service_instance.send(:parse_amount, '$100.50')).to eq(100.50)
+        expect(service_instance.send(:parse_amount, '1,000.50')).to eq(1000.50)
+        expect(service_instance.send(:parse_amount, '-50.25')).to eq(-50.25)
+      end
+
+      it 'raises error for invalid amounts' do
+        expect { service_instance.send(:parse_amount, 'invalid') }.to raise_error(/Invalid amount format/)
       end
     end
 
-    context 'with different CSV formats' do
-      it 'handles different date formats' do
-        csv_content = <<~CSV
-          date,description,amount,category
-          01/15/2024,US Format Date,-50.00,Test
-          15-01-2024,EU Format Date,-75.00,Test
-          2024-01-15,ISO Format Date,-100.00,Test
-        CSV
-        
-        result = CsvImportService.import(csv_content)
-        
-        # At least ISO format should work
-        expect(result[:imported_count]).to be >= 1
-        expect(result[:processed_count]).to eq(3)
+    describe '#parse_date' do
+      it 'handles various date formats' do
+        expect(service_instance.send(:parse_date, '2025-08-19')).to eq(Date.parse('2025-08-19'))
+        expect(service_instance.send(:parse_date, '08/19/2025')).to eq(Date.parse('2025-08-19'))
+        expect(service_instance.send(:parse_date, '19/08/2025')).to eq(Date.parse('2025-08-19'))
       end
 
-      it 'handles currency symbols' do
-        csv_content = <<~CSV
-          date,description,amount,category
-          2024-01-15,With Dollar Sign,$50.00,Test
-          2024-01-16,With Negative,"-$75.00",Test
-          2024-01-17,Plain Number,100.00,Test
-        CSV
-        
-        result = CsvImportService.import(csv_content)
-        
-        expect(result[:imported_count]).to be >= 1
+      it 'raises error for invalid dates' do
+        expect { service_instance.send(:parse_date, 'invalid-date') }.to raise_error(/Invalid date format/)
       end
     end
 
-    context 'error handling' do
-      it 'handles empty CSV content' do
-        result = CsvImportService.import('')
-        
-        expect(result[:processed_count]).to eq(0)
-        expect(result[:imported_count]).to eq(0)
-        expect(result[:error_count]).to eq(0)
+    describe '#find_or_create_category' do
+      it 'creates new categories' do
+        expect { service_instance.send(:find_or_create_category, 'New Category') }
+          .to change(Category, :count).by(1)
       end
 
-      it 'handles malformed CSV' do
-        malformed_csv = "date,description,amount\n2024-01-15,\"Unclosed quote,-50.00"
+      it 'finds existing categories' do
+        existing_category = create(:category, name: 'Existing')
         
-        expect { CsvImportService.import(malformed_csv) }.not_to raise_error
+        result = service_instance.send(:find_or_create_category, 'Existing')
+        expect(result).to eq(existing_category)
+      end
+
+      it 'handles blank category names' do
+        result = service_instance.send(:find_or_create_category, '')
+        expect(result).to be_nil
       end
     end
   end

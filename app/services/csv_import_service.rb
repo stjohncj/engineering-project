@@ -1,6 +1,8 @@
 require 'csv'
 
 class CsvImportService
+  BATCH_SIZE = 1000 # Process 1000 records at a time for optimal performance
+  
   def initialize(file)
     @file = file
     @imported = 0
@@ -10,14 +12,33 @@ class CsvImportService
   end
   
   def import
+    transactions_batch = []
+    row_number = 0
+    
     CSV.foreach(@file.path, headers: true, header_converters: :symbol) do |row|
+      row_number += 1
+      
       begin
-        process_row(row)
+        transaction_data = prepare_transaction_data(row, row_number)
+        transactions_batch << transaction_data if transaction_data
+        
+        # Process batch when it reaches BATCH_SIZE
+        if transactions_batch.size >= BATCH_SIZE
+          process_batch(transactions_batch)
+          transactions_batch.clear
+        end
+        
       rescue => e
         @failed += 1
-        @errors << "Row #{$.}: #{e.message}"
+        @errors << "Row #{row_number}: #{e.message}"
       end
     end
+    
+    # Process remaining transactions
+    process_batch(transactions_batch) if transactions_batch.any?
+    
+    # Invalidate caches after bulk import
+    invalidate_caches
     
     {
       imported: @imported,
@@ -29,32 +50,73 @@ class CsvImportService
   
   private
   
-  def process_row(row)
+  def prepare_transaction_data(row, row_number)
     # Handle different CSV formats
     transaction_data = normalize_row_data(row)
     
     # Validate required fields
     validate_row_data(transaction_data)
     
-    # Check for duplicates
-    if duplicate_exists?(transaction_data)
+    # Check for duplicates using efficient hash lookup
+    duplicate_hash = generate_duplicate_hash(transaction_data)
+    if duplicate_exists?(duplicate_hash)
       @failed += 1
-      @errors << "Row #{$.}: Duplicate transaction detected"
-      return
+      @errors << "Row #{row_number}: Duplicate transaction detected"
+      return nil
     end
     
-    # Create transaction
-    transaction = Transaction.new(transaction_data)
-    transaction.import_batch_id = @batch_id
+    # Prepare transaction data with batch metadata
+    transaction_data.merge({
+      import_batch_id: @batch_id,
+      duplicate_hash: duplicate_hash,
+      created_at: Time.current,
+      updated_at: Time.current
+    })
+  end
+  
+  def process_batch(transactions_batch)
+    return if transactions_batch.empty?
     
-    if transaction.save
-      @imported += 1
+    # Use database transaction for consistency
+    Transaction.transaction do
+      # Bulk insert transactions for maximum performance
+      result = Transaction.insert_all(transactions_batch, returning: [:id])
+      transaction_ids = result.rows.flatten
       
-      # Apply rules and check for anomalies
-      apply_post_processing(transaction)
-    else
-      @failed += 1
-      @errors << "Row #{$.}: #{transaction.errors.full_messages.join(', ')}"
+      @imported += transaction_ids.size
+      
+      # Batch process rules and anomaly detection
+      if transaction_ids.any?
+        apply_batch_post_processing(transaction_ids)
+      end
+    end
+  rescue => e
+    # If batch fails, fall back to individual processing
+    Rails.logger.warn "Batch insert failed: #{e.message}. Falling back to individual processing."
+    process_batch_individually(transactions_batch)
+  end
+  
+  def process_batch_individually(transactions_batch)
+    transactions_batch.each_with_index do |transaction_data, index|
+      begin
+        transaction = Transaction.create!(transaction_data)
+        apply_post_processing(transaction)
+        @imported += 1
+      rescue => e
+        @failed += 1
+        @errors << "Batch row #{index + 1}: #{e.message}"
+      end
+    end
+  end
+  
+  def apply_batch_post_processing(transaction_ids)
+    # Queue bulk rule application for background processing
+    BulkRuleApplicationJob.perform_later(transaction_ids)
+    
+    # Queue bulk anomaly detection for background processing
+    # Process in smaller batches to avoid overwhelming the queue
+    transaction_ids.each_slice(50) do |batch_ids|
+      BulkAnomalyDetectionJob.perform_later(batch_ids)
     end
   end
   
@@ -113,10 +175,14 @@ class CsvImportService
     Category.find_or_create_by(name: category_name.to_s.strip)
   end
   
-  def duplicate_exists?(data)
-    hash = Digest::SHA256.hexdigest(
+  def generate_duplicate_hash(data)
+    Digest::SHA256.hexdigest(
       "#{data[:amount]}_#{data[:transaction_date]}_#{data[:description]&.downcase&.strip}"
     )
+  end
+  
+  def duplicate_exists?(hash)
+    # Use indexed lookup for fast duplicate checking
     Transaction.exists?(duplicate_hash: hash)
   end
   
@@ -128,5 +194,17 @@ class CsvImportService
     
     # Check for anomalies
     AnomalyDetectionService.new(transaction).detect_and_flag
+  end
+  
+  def invalidate_caches
+    # Clear all transaction-related caches after bulk import
+    Rails.cache.delete("dashboard_statistics")
+    Rails.cache.delete("recent_transactions")
+    Rails.cache.delete("total_transactions_count")
+    Rails.cache.delete("total_amount_sum")
+    Rails.cache.delete("monthly_transaction_trends")
+    Rails.cache.delete("category_breakdown")
+    Rails.cache.delete_matched("transactions_index_*")
+    Rails.cache.delete_matched("total_transactions_filtered_*")
   end
 end

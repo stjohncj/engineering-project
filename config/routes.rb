@@ -21,6 +21,16 @@ Rails.application.routes.draw do
           patch :resolve
         end
       end
+      # Dashboard API endpoints with caching
+      get 'dashboard/statistics', to: 'dashboard#statistics'
+      get 'dashboard/recent_transactions', to: 'dashboard#recent_transactions'
+      get 'dashboard/active_anomalies', to: 'dashboard#active_anomalies'
+      
+      # Performance monitoring endpoints
+      get 'performance/health', to: 'performance#health'
+      get 'performance/metrics', to: 'performance#metrics'
+      get 'performance/database_stats', to: 'performance#database_stats'
+      get 'performance/cache_stats', to: 'performance#cache_stats'
     end
   end
   # Define your application routes per the DSL in https://guides.rubyonrails.org/routing.html
