@@ -1,11 +1,9 @@
 # syntax=docker/dockerfile:1
 # check=error=true
 
-# This Dockerfile is designed for production, not development. Use with Kamal or build'n'run by hand:
-# docker build -t engineering_project .
-# docker run -d -p 80:80 -e RAILS_MASTER_KEY=<value from config/master.key> --name engineering_project engineering_project
-
-# For a containerized dev environment, see Dev Containers: https://guides.rubyonrails.org/getting_started_with_devcontainer.html
+# Worker Dockerfile for background job processing
+# docker build -f Dockerfile.worker -t engineering_project_worker .
+# docker run -d -e RAILS_MASTER_KEY=<value> --name worker engineering_project_worker
 
 # Make sure RUBY_VERSION matches the Ruby version in .ruby-version
 ARG RUBY_VERSION=3.4.1
@@ -19,18 +17,17 @@ RUN apt-get update -qq && \
     apt-get install --no-install-recommends -y curl libjemalloc2 libvips postgresql-client redis-tools && \
     rm -rf /var/lib/apt/lists /var/cache/apt/archives
 
-# Set production environment and performance configurations
+# Set production environment optimized for background processing
 ENV RAILS_ENV="production" \
     BUNDLE_DEPLOYMENT="1" \
     BUNDLE_PATH="/usr/local/bundle" \
     BUNDLE_WITHOUT="development" \
     RAILS_LOG_LEVEL="info" \
-    RAILS_SERVE_STATIC_FILES="true" \
-    QUERY_WARNING_THRESHOLD="10" \
-    SLOW_REQUEST_THRESHOLD="1000" \
+    QUERY_WARNING_THRESHOLD="25" \
+    SLOW_QUERY_THRESHOLD="500" \
     MONITORING_SERVICE_ENABLED="true" \
-    WEB_CONCURRENCY="2" \
-    RAILS_MAX_THREADS="8"
+    WORKER_PROCESSES="4" \
+    WORKER_TIMEOUT="300"
 
 # Throw-away build stage to reduce size of final image
 FROM base AS build
@@ -52,13 +49,7 @@ COPY . .
 # Precompile bootsnap code for faster boot times
 RUN bundle exec bootsnap precompile app/ lib/
 
-# Precompiling assets for production without requiring secret RAILS_MASTER_KEY
-RUN SECRET_KEY_BASE_DUMMY=1 ./bin/rails assets:precompile
-
-
-
-
-# Final stage for app image
+# Final stage for worker image
 FROM base
 
 # Copy built artifacts: gems, application
@@ -71,13 +62,12 @@ RUN groupadd --system --gid 1000 rails && \
     chown -R rails:rails db log storage tmp
 USER 1000:1000
 
-# Add health check for our performance monitoring endpoint
-HEALTHCHECK --interval=30s --timeout=3s --start-period=5s --retries=3 \
-    CMD curl -f http://localhost:80/api/v1/performance/health || exit 1
+# Health check for worker process via solid_queue status
+HEALTHCHECK --interval=60s --timeout=10s --start-period=30s --retries=3 \
+    CMD ./bin/rails runner "exit(1) unless SolidQueue::Process.where('last_heartbeat_at > ?', 2.minutes.ago).exists?" || exit 1
 
-# Entrypoint prepares the database.
+# Entrypoint prepares the database (workers need access too)
 ENTRYPOINT ["/rails/bin/docker-entrypoint"]
 
-# Start server via Thruster by default, this can be overwritten at runtime
-EXPOSE 80
-CMD ["./bin/thrust", "./bin/rails", "server"]
+# Start background job worker using solid_queue
+CMD ["./bin/rails", "solid_queue:start"]

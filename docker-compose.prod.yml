@@ -1,0 +1,133 @@
+version: '3.8'
+
+# Production override for docker-compose.yml
+# Usage: docker-compose -f docker-compose.yml -f docker-compose.prod.yml up
+
+services:
+  postgres:
+    environment:
+      POSTGRES_DB: engineering_project_production
+      POSTGRES_USER: ${POSTGRES_USER:-postgres}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+    volumes:
+      - postgres_prod_data:/var/lib/postgresql/data
+    ports: []  # Don't expose postgres in production
+    deploy:
+      resources:
+        limits:
+          memory: 1G
+        reservations:
+          memory: 512M
+
+  redis:
+    command: redis-server --appendonly yes --maxmemory 512mb --maxmemory-policy allkeys-lru --save 900 1 --save 300 10
+    volumes:
+      - redis_prod_data:/data
+    ports: []  # Don't expose redis in production
+    deploy:
+      resources:
+        limits:
+          memory: 512M
+        reservations:
+          memory: 256M
+
+  app:
+    environment:
+      DATABASE_URL: postgres://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD}@postgres:5432/engineering_project_production
+      REDIS_URL: redis://redis:6379/0
+      RAILS_ENV: production
+      RAILS_LOG_LEVEL: info
+      RAILS_SERVE_STATIC_FILES: true
+      QUERY_WARNING_THRESHOLD: 10
+      SLOW_REQUEST_THRESHOLD: 1000
+      MONITORING_SERVICE_ENABLED: true
+      WEB_CONCURRENCY: 4
+      RAILS_MAX_THREADS: 16
+      RAILS_MASTER_KEY: ${RAILS_MASTER_KEY}
+      SECRET_KEY_BASE: ${SECRET_KEY_BASE}
+    volumes:
+      - app_storage:/rails/storage
+      - app_logs:/rails/log
+    ports:
+      - "80:80"
+    restart: unless-stopped
+    deploy:
+      resources:
+        limits:
+          memory: 1G
+        reservations:
+          memory: 512M
+      replicas: 2
+
+  worker:
+    environment:
+      DATABASE_URL: postgres://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD}@postgres:5432/engineering_project_production
+      REDIS_URL: redis://redis:6379/0
+      RAILS_ENV: production
+      RAILS_LOG_LEVEL: info
+      QUERY_WARNING_THRESHOLD: 25
+      SLOW_QUERY_THRESHOLD: 2000
+      MONITORING_SERVICE_ENABLED: true
+      WORKER_PROCESSES: 8
+      WORKER_TIMEOUT: 600
+      RAILS_MASTER_KEY: ${RAILS_MASTER_KEY}
+      SECRET_KEY_BASE: ${SECRET_KEY_BASE}
+    volumes:
+      - app_storage:/rails/storage
+      - app_logs:/rails/log
+    restart: unless-stopped
+    deploy:
+      resources:
+        limits:
+          memory: 2G
+        reservations:
+          memory: 1G
+      replicas: 2
+
+  # Load balancer for production
+  nginx:
+    image: nginx:alpine
+    ports:
+      - "443:443"
+      - "80:80"
+    volumes:
+      - ./nginx.conf:/etc/nginx/nginx.conf:ro
+      - ./ssl:/etc/ssl/certs:ro
+    depends_on:
+      - app
+    restart: unless-stopped
+    profiles:
+      - production
+
+  # Monitoring stack
+  prometheus:
+    image: prom/prometheus:latest
+    ports:
+      - "9090:9090"
+    volumes:
+      - ./monitoring/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - prometheus_data:/prometheus
+    restart: unless-stopped
+    profiles:
+      - monitoring
+
+  grafana:
+    image: grafana/grafana:latest
+    ports:
+      - "3001:3000"
+    environment:
+      GF_SECURITY_ADMIN_PASSWORD: ${GRAFANA_PASSWORD:-admin}
+    volumes:
+      - grafana_data:/var/lib/grafana
+      - ./monitoring/grafana:/etc/grafana/provisioning:ro
+    restart: unless-stopped
+    profiles:
+      - monitoring
+
+volumes:
+  postgres_prod_data:
+  redis_prod_data:
+  app_storage:
+  app_logs:
+  prometheus_data:
+  grafana_data:
