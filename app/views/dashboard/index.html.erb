@@ -71,7 +71,7 @@
                 const loadTransactions = async () => {
                     try {
                         setLoading(true);
-                        const response = await fetch(`/api/v1/transactions?per_page=${limit}`);
+                        const response = await fetch('/api/v1/dashboard/recent_transactions');
                         const data = await response.json();
                         setTransactions(data.transactions || []);
                     } catch (error) {
@@ -134,9 +134,9 @@
                 const loadAnomalies = async () => {
                     try {
                         setLoading(true);
-                        const response = await fetch(`/api/v1/anomaly_detections?unresolved=true&per_page=${limit}`);
+                        const response = await fetch('/api/v1/dashboard/active_anomalies');
                         const data = await response.json();
-                        setAnomalies(data.anomaly_detections || []);
+                        setAnomalies(data.anomalies || []);
                     } catch (error) {
                         console.error('Error loading anomalies:', error);
                     } finally {
@@ -220,18 +220,15 @@
             const loadStats = async () => {
                 try {
                     setLoading(true);
-                    const [transactions, categories, anomalies, rules] = await Promise.all([
-                        fetch('/api/v1/transactions').then(r => r.json()),
-                        fetch('/api/v1/categories').then(r => r.json()),
-                        fetch('/api/v1/anomaly_detections?unresolved=true').then(r => r.json()),
-                        fetch('/api/v1/rules').then(r => r.json())
-                    ]);
+                    const response = await fetch('/api/v1/dashboard/statistics');
+                    const data = await response.json();
+                    const stats = data.statistics;
 
                     setStats({
-                        transactions: transactions.pagination?.total_count || transactions.transactions?.length || 0,
-                        categories: categories.categories?.length || 0,
-                        anomalies: anomalies.pagination?.total_count || anomalies.anomaly_detections?.length || 0,
-                        rules: rules.rules?.length || 0
+                        transactions: stats.total_transactions || 0,
+                        categories: stats.categories_count || 0,
+                        anomalies: stats.unresolved_anomalies || 0,
+                        rules: stats.active_rules || 0
                     });
                 } catch (error) {
                     console.error('Error loading stats:', error);
@@ -278,7 +275,7 @@
                             h('h3', null, '🚀 Quick Actions'),
                             h('div', { className: 'action-buttons' },
                                 h('a', { href: '/upload', className: 'action-btn primary' }, '📁 Import CSV Transactions'),
-                                h('a', { href: '/api/v1/transactions/anomalies', target: '_blank', className: 'action-btn warning' }, '🚨 Review Flagged Transactions'),
+                                h('a', { href: '/review', className: 'action-btn warning' }, '🚨 Review Flagged Transactions'),
                                 h('button', { onClick: refreshDashboard, className: 'action-btn secondary' }, '🔄 Refresh Dashboard')
                             )
                         ),

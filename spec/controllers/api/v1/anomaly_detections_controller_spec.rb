@@ -43,6 +43,37 @@ RSpec.describe Api::V1::AnomalyDetectionsController, type: :controller do
       expect(json['pagination']).to include('current_page', 'per_page', 'total_count')
     end
 
+    it 'ensures total_count is never zero when anomalies exist' do
+      # This test catches the pagination bug we just fixed
+      get :index, params: { per_page: 3 }
+      json = JSON.parse(response.body)
+      expect(json['pagination']['total_count']).to be > 0
+      expect(json['pagination']['total_count']).to eq(AnomalyDetection.count)
+    end
+
+    it 'handles unpermitted parameters gracefully' do
+      # This test catches ActionController::UnfilteredParameters errors
+      get :index, params: { 
+        malicious_param: 'hack_attempt',
+        unresolved: 'true',
+        bad_nested: { param: 'value' }
+      }
+      expect(response).to be_successful
+      json = JSON.parse(response.body)
+      expect(json).to have_key('anomaly_detections')
+      expect(json).to have_key('pagination')
+    end
+
+    it 'calculates pagination correctly with filters' do
+      # Test pagination with the unresolved filter that was causing issues
+      unresolved_count = AnomalyDetection.where(resolved: false).count
+      get :index, params: { unresolved: 'true', per_page: 2 }
+      json = JSON.parse(response.body)
+      expect(json['pagination']['total_count']).to eq(unresolved_count)
+      expected_pages = (unresolved_count.to_f / 2).ceil
+      expect(json['pagination']['total_pages']).to eq(expected_pages)
+    end
+
     context 'filtering by resolution status' do
       it 'returns only unresolved anomalies when requested' do
         get :index, params: { unresolved: true }

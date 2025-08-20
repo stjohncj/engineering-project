@@ -4,4 +4,7 @@ class DashboardController < ApplicationController
 
   def upload
   end
+
+  def review
+  end
 end

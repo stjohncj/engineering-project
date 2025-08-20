@@ -4,29 +4,46 @@ class Api::V1::AnomalyDetectionsController < ApplicationController
   before_action :set_anomaly_detection, only: [:show, :update, :resolve]
   
   def index
-    # Cache anomaly detections for 3 minutes
-    cache_key = "anomaly_detections_index_#{Digest::MD5.hexdigest(params.to_query)}"
+    # Build query with eager loading
+    @anomaly_detections = AnomalyDetection.includes(transaction_record: :category)
     
-    result = Rails.cache.fetch(cache_key, expires_in: 3.minutes) do
-      # Build query with eager loading
-      @anomaly_detections = AnomalyDetection.includes(transaction_record: :category)
-      
-      # Apply filters efficiently
-      @anomaly_detections = @anomaly_detections.where(resolved: false) if params[:unresolved] == 'true'
-      @anomaly_detections = @anomaly_detections.by_severity(params[:severity]) if params[:severity].present?
-      @anomaly_detections = @anomaly_detections.by_type(params[:anomaly_type]) if params[:anomaly_type].present?
-      
-      # Order by priority (severity desc, then creation time)
-      @anomaly_detections = @anomaly_detections.order(severity: :desc, created_at: :desc)
-      
-      # Paginate efficiently
-      paginated_anomalies = paginate_collection(@anomaly_detections)
-      
-      paginated_json(
-        paginated_anomalies.map { |ad| anomaly_detection_json(ad) },
-        data_key: :anomaly_detections
-      )
-    end
+    # Apply filters efficiently
+    @anomaly_detections = @anomaly_detections.where(resolved: false) if params[:unresolved] == 'true'
+    @anomaly_detections = @anomaly_detections.by_severity(params[:severity]) if params[:severity].present?
+    @anomaly_detections = @anomaly_detections.by_type(params[:anomaly_type]) if params[:anomaly_type].present?
+    
+    # Order by priority (severity desc, then creation time)
+    @anomaly_detections = @anomaly_detections.order(severity: :desc, created_at: :desc)
+    
+    # Get current page and per_page params
+    page = params[:page]&.to_i || 1
+    per_page = [(params[:per_page]&.to_i || 50), 100].min
+    
+    # Use Kaminari for pagination
+    paginated_anomalies = @anomaly_detections.page(page).per(per_page)
+    
+    # Get total count manually to ensure accuracy
+    total_count = @anomaly_detections.except(:limit, :offset, :order).count
+    total_pages = (total_count.to_f / per_page).ceil
+    
+    # Convert to JSON
+    anomaly_data = paginated_anomalies.map { |ad| anomaly_detection_json(ad) }
+    
+    # Build pagination info manually
+    pagination_info = {
+      current_page: page,
+      per_page: per_page,
+      total_count: total_count,
+      total_pages: total_pages,
+      next_page: page < total_pages ? page + 1 : nil,
+      prev_page: page > 1 ? page - 1 : nil
+    }
+    
+    # Build response
+    result = {
+      anomaly_detections: anomaly_data,
+      pagination: pagination_info
+    }
     
     expires_in 3.minutes, public: true
     render json: result

@@ -4,28 +4,44 @@ class Api::V1::TransactionsController < ApplicationController
   before_action :set_transaction, only: [:show, :update, :destroy]
   
   def index
-    # Cache key based on params for filtered results
-    cache_key = "transactions_index_#{Digest::MD5.hexdigest(params.to_query)}"
+    # Build base query with eager loading to prevent N+1 queries
+    @transactions = Transaction.includes(:category, :anomaly_detections)
     
-    result = Rails.cache.fetch(cache_key, expires_in: 2.minutes) do
-      # Build base query with eager loading to prevent N+1 queries
-      @transactions = Transaction.includes(:category, :anomaly_detections)
-      
-      # Apply filters efficiently using indexed columns
-      @transactions = apply_filters(@transactions)
-      
-      # Apply sorting for consistent pagination
-      @transactions = @transactions.order(transaction_date: :desc, created_at: :desc)
-      
-      # Paginate the collection
-      paginated_transactions = paginate_collection(@transactions)
-      
-      # Generate paginated response
-      paginated_json(
-        paginated_transactions.map { |t| transaction_json(t) },
-        data_key: :transactions
-      )
-    end
+    # Apply filters efficiently using indexed columns
+    @transactions = apply_filters(@transactions)
+    
+    # Apply sorting for consistent pagination
+    @transactions = @transactions.order(transaction_date: :desc, created_at: :desc)
+    
+    # Get current page and per_page params
+    page = params[:page]&.to_i || 1
+    per_page = [(params[:per_page]&.to_i || 50), 100].min
+    
+    # Use Kaminari for pagination
+    paginated_transactions = @transactions.page(page).per(per_page)
+    
+    # Get total count manually to ensure accuracy
+    total_count = @transactions.except(:limit, :offset, :order).count
+    total_pages = (total_count.to_f / per_page).ceil
+    
+    # Convert to JSON
+    transactions_data = paginated_transactions.map { |t| transaction_json(t) }
+    
+    # Build pagination info manually
+    pagination_info = {
+      current_page: page,
+      per_page: per_page,
+      total_count: total_count,
+      total_pages: total_pages,
+      next_page: page < total_pages ? page + 1 : nil,
+      prev_page: page > 1 ? page - 1 : nil
+    }
+    
+    # Build response
+    result = {
+      transactions: transactions_data,
+      pagination: pagination_info
+    }
     
     # Set HTTP cache headers
     expires_in 2.minutes, public: true
@@ -111,10 +127,56 @@ class Api::V1::TransactionsController < ApplicationController
   end
   
   def anomalies
-    @transactions = Transaction.with_anomalies.includes(:category, :anomaly_detections)
-    render json: {
-      transactions: @transactions.map { |t| transaction_json(t, include_anomalies: true) }
+    # Build base query - if status filter is provided, use it; otherwise default to transactions with anomalies
+    if params[:status].present?
+      @transactions = Transaction.includes(:category)
+      @transactions = @transactions.where(status: params[:status])
+    elsif params[:show_all] == 'true'
+      # Special case: show all transactions when explicitly requested
+      @transactions = Transaction.includes(:category)
+    else
+      @transactions = Transaction.with_anomalies.includes(:category)
+    end
+    
+    # Apply additional filters
+    @transactions = apply_anomalies_filters(@transactions)
+    
+    # Apply sorting
+    @transactions = @transactions.order(transaction_date: :desc, created_at: :desc)
+    
+    # Get current page and per_page params
+    page = params[:page]&.to_i || 1
+    per_page = [(params[:per_page]&.to_i || 50), 100].min
+    
+    # Use Kaminari for pagination
+    paginated_transactions = @transactions.page(page).per(per_page)
+    
+    # Get total count manually to ensure accuracy
+    total_count = @transactions.except(:limit, :offset, :order).count
+    total_pages = (total_count.to_f / per_page).ceil
+    
+    # Convert to JSON - load anomaly_detections separately to avoid JSON field issues
+    transactions_data = paginated_transactions.map do |t|
+      transaction_json(t, include_anomalies: true)
+    end
+    
+    # Build pagination info manually
+    pagination_info = {
+      current_page: page,
+      per_page: per_page,
+      total_count: total_count,
+      total_pages: total_pages,
+      next_page: page < total_pages ? page + 1 : nil,
+      prev_page: page > 1 ? page - 1 : nil
     }
+    
+    # Build response
+    result = {
+      transactions: transactions_data,
+      pagination: pagination_info
+    }
+    
+    render json: result
   end
   
   private
@@ -143,12 +205,24 @@ class Api::V1::TransactionsController < ApplicationController
     }
     
     if include_anomalies || transaction.has_anomalies?
-      json[:anomalies] = transaction.flagged_anomalies.map do |anomaly|
+      # Load anomalies without the problematic JSON metadata field
+      anomalies = AnomalyDetection.where(
+        transaction_record_id: transaction.id, 
+        resolved: false
+      ).select(:id, :anomaly_type, :severity, :description, :resolved)
+      
+      json[:anomalies] = anomalies.map do |anomaly|
         {
           id: anomaly.id,
           type: anomaly.anomaly_type,
           severity: anomaly.severity,
-          severity_label: anomaly.severity_label,
+          severity_label: case anomaly.severity
+                         when 1 then 'Low'
+                         when 2 then 'Low-Medium'  
+                         when 3 then 'Medium'
+                         when 4 then 'High'
+                         when 5 then 'Critical'
+                         end,
           description: anomaly.description,
           resolved: anomaly.resolved
         }
@@ -240,6 +314,29 @@ class Api::V1::TransactionsController < ApplicationController
     session[:user_id] || 'anonymous'
   end
   
+  def cache_params
+    # Only include cacheable filter parameters
+    params.permit(:category_id, :status, :start_date, :end_date, :min_amount, :max_amount, :search, :page, :per_page).to_h
+  end
+
+  def apply_anomalies_filters(relation)
+    # Filter by anomaly type if specified
+    if params[:anomaly_type].present?
+      relation = relation.joins(:anomaly_detections)
+                        .where(anomaly_detections: { anomaly_type: params[:anomaly_type] })
+                        .distinct
+    end
+    
+    # Filter by severity if specified
+    if params[:severity].present?
+      relation = relation.joins(:anomaly_detections)
+                        .where(anomaly_detections: { severity: params[:severity] })
+                        .distinct
+    end
+    
+    relation
+  end
+
   def invalidate_transaction_caches
     # Clear dashboard statistics cache
     Rails.cache.delete("dashboard_statistics")

@@ -104,7 +104,7 @@ class Api::V1::DashboardController < ApplicationController
   def anomaly_json(anomaly)
     {
       id: anomaly.id,
-      type: anomaly.anomaly_type,
+      anomaly_type: anomaly.anomaly_type,
       severity: anomaly.severity,
       severity_label: anomaly.severity_label,
       description: anomaly.description,

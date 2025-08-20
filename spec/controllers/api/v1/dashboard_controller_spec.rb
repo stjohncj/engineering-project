@@ -125,7 +125,7 @@ RSpec.describe Api::V1::DashboardController, type: :controller do
       expect(anomalies_data).to be_an(Array)
       expect(anomalies_data.length).to be <= 5
       expect(anomalies_data.first).to have_key('id')
-      expect(anomalies_data.first).to have_key('type')
+      expect(anomalies_data.first).to have_key('anomaly_type')
       expect(anomalies_data.first).to have_key('severity')
       expect(anomalies_data.first).to have_key('severity_label')
       expect(anomalies_data.first).to have_key('description')

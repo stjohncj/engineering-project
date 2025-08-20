@@ -1,0 +1,826 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Review Flagged Transactions - Bookkeeping System</title>
+    <%= csrf_meta_tags %>
+    <%= csp_meta_tag %>
+    <%= stylesheet_link_tag "application", "data-turbo-track": "reload" %>
+    
+    <!-- React from CDN -->
+    <script crossorigin src="https://unpkg.com/react@18/umd/react.development.js"></script>
+    <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.development.js"></script>
+    
+    <style>
+        body {
+            margin: 0;
+            padding: 0;
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: #f8fafc;
+        }
+        
+        .review-container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 2rem;
+        }
+        
+        .header {
+            background: white;
+            border-radius: 12px;
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+            padding: 2rem;
+            margin-bottom: 2rem;
+            text-align: center;
+        }
+        
+        .header h1 {
+            color: #dc2626;
+            margin: 0 0 0.5rem 0;
+            font-size: 2rem;
+        }
+        
+        .header p {
+            color: #6b7280;
+            margin: 0;
+        }
+        
+        .back-link {
+            display: inline-flex;
+            align-items: center;
+            color: #2563eb;
+            text-decoration: none;
+            font-weight: 500;
+            margin-bottom: 2rem;
+            transition: color 0.2s;
+        }
+        
+        .back-link:hover {
+            color: #1d4ed8;
+        }
+        
+        .filters {
+            background: white;
+            border-radius: 12px;
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+            padding: 1.5rem;
+            margin-bottom: 2rem;
+        }
+        
+        .filters h3 {
+            margin: 0 0 1rem 0;
+            color: #374151;
+        }
+        
+        .filter-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 1rem;
+        }
+        
+        .filter-group {
+            display: flex;
+            flex-direction: column;
+        }
+        
+        .filter-group label {
+            font-weight: 500;
+            color: #374151;
+            margin-bottom: 0.5rem;
+        }
+        
+        .filter-group select,
+        .filter-group input {
+            padding: 0.5rem;
+            border: 1px solid #d1d5db;
+            border-radius: 6px;
+            font-size: 0.875rem;
+        }
+        
+        .transactions-section {
+            background: white;
+            border-radius: 12px;
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+            overflow: hidden;
+        }
+        
+        .section-header {
+            padding: 1.5rem;
+            background: #f9fafb;
+            border-bottom: 1px solid #e5e7eb;
+            display: flex;
+            justify-content: between;
+            align-items: center;
+        }
+        
+        .section-header h2 {
+            margin: 0;
+            color: #374151;
+        }
+        
+        .transaction-card {
+            border-bottom: 1px solid #f3f4f6;
+            padding: 1.5rem;
+            transition: background-color 0.2s;
+        }
+        
+        .transaction-card:hover {
+            background: #f9fafb;
+        }
+        
+        .transaction-card:last-child {
+            border-bottom: none;
+        }
+        
+        .transaction-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+            margin-bottom: 1rem;
+        }
+        
+        .transaction-info h4 {
+            margin: 0 0 0.25rem 0;
+            color: #111827;
+            font-size: 1.125rem;
+        }
+        
+        .transaction-meta {
+            color: #6b7280;
+            font-size: 0.875rem;
+            margin: 0;
+        }
+        
+        .transaction-amount {
+            font-size: 1.25rem;
+            font-weight: 600;
+        }
+        
+        .transaction-amount.positive {
+            color: #059669;
+        }
+        
+        .transaction-amount.negative {
+            color: #dc2626;
+        }
+        
+        .anomalies-section {
+            margin: 1rem 0;
+        }
+        
+        .anomaly-item {
+            background: #fef3c7;
+            border: 1px solid #fbbf24;
+            border-radius: 6px;
+            padding: 0.75rem;
+            margin-bottom: 0.5rem;
+        }
+        
+        .anomaly-item.high-severity {
+            background: #fecaca;
+            border-color: #f87171;
+        }
+        
+        .anomaly-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 0.5rem;
+        }
+        
+        .anomaly-type {
+            font-weight: 600;
+            color: #92400e;
+        }
+        
+        .anomaly-item.high-severity .anomaly-type {
+            color: #991b1b;
+        }
+        
+        .severity-badge {
+            padding: 0.25rem 0.5rem;
+            border-radius: 4px;
+            font-size: 0.75rem;
+            font-weight: 500;
+        }
+        
+        .severity-low { background: #d1fae5; color: #065f46; }
+        .severity-medium { background: #fef3c7; color: #92400e; }
+        .severity-high { background: #fecaca; color: #991b1b; }
+        
+        .action-buttons {
+            display: flex;
+            gap: 0.5rem;
+            margin-top: 1rem;
+        }
+        
+        .btn {
+            padding: 0.5rem 1rem;
+            border: none;
+            border-radius: 6px;
+            font-size: 0.875rem;
+            font-weight: 500;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+        
+        .btn-primary {
+            background: #2563eb;
+            color: white;
+        }
+        
+        .btn-primary:hover {
+            background: #1d4ed8;
+        }
+        
+        .btn-secondary {
+            background: #f3f4f6;
+            color: #374151;
+            border: 1px solid #d1d5db;
+        }
+        
+        .btn-secondary:hover {
+            background: #e5e7eb;
+        }
+        
+        .btn-danger {
+            background: #dc2626;
+            color: white;
+        }
+        
+        .btn-danger:hover {
+            background: #b91c1c;
+        }
+        
+        .btn-success {
+            background: #059669;
+            color: white;
+        }
+        
+        .btn-success:hover {
+            background: #047857;
+        }
+        
+        .loading {
+            text-align: center;
+            padding: 3rem;
+            color: #6b7280;
+        }
+        
+        .empty-state {
+            text-align: center;
+            padding: 3rem;
+            color: #6b7280;
+        }
+        
+        .pagination {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            gap: 1rem;
+            padding: 1.5rem;
+        }
+        
+        .pagination button {
+            padding: 0.5rem 1rem;
+            border: 1px solid #d1d5db;
+            background: white;
+            border-radius: 6px;
+            cursor: pointer;
+        }
+        
+        .pagination button:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+        
+        .modal {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(0, 0, 0, 0.5);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 1000;
+        }
+        
+        .modal-content {
+            background: white;
+            border-radius: 12px;
+            padding: 2rem;
+            max-width: 500px;
+            width: 90%;
+            max-height: 80vh;
+            overflow-y: auto;
+        }
+        
+        .modal h3 {
+            margin: 0 0 1rem 0;
+            color: #111827;
+        }
+        
+        .form-group {
+            margin-bottom: 1rem;
+        }
+        
+        .form-group label {
+            display: block;
+            font-weight: 500;
+            color: #374151;
+            margin-bottom: 0.5rem;
+        }
+        
+        .form-group input,
+        .form-group select,
+        .form-group textarea {
+            width: 100%;
+            padding: 0.5rem;
+            border: 1px solid #d1d5db;
+            border-radius: 6px;
+            font-size: 0.875rem;
+        }
+        
+        .form-group textarea {
+            height: 80px;
+            resize: vertical;
+        }
+        
+        .modal-actions {
+            display: flex;
+            gap: 0.5rem;
+            justify-content: flex-end;
+            margin-top: 1.5rem;
+        }
+    </style>
+</head>
+<body>
+    <div id="react-app"></div>
+    
+    <script>
+        const { useState, useEffect, createElement: h } = React;
+        
+        // Utility functions
+        const formatCurrency = (amount) => {
+            return new Intl.NumberFormat('en-US', {
+                style: 'currency',
+                currency: 'USD'
+            }).format(amount);
+        };
+
+        const formatDate = (dateString) => {
+            return new Date(dateString).toLocaleDateString('en-US', {
+                year: 'numeric',
+                month: 'short',
+                day: 'numeric'
+            });
+        };
+
+        const getSeverityClass = (severity) => {
+            if (severity >= 4) return 'severity-high';
+            if (severity >= 3) return 'severity-medium';
+            return 'severity-low';
+        };
+        
+        // Edit Transaction Modal Component
+        const EditTransactionModal = ({ transaction, onClose, onSave }) => {
+            const [formData, setFormData] = useState({
+                description: transaction?.description || '',
+                amount: transaction?.amount || '',
+                transaction_date: transaction?.transaction_date || '',
+                category_id: transaction?.category_id || '',
+                status: transaction?.status || 'pending'
+            });
+            const [categories, setCategories] = useState([]);
+            const [saving, setSaving] = useState(false);
+
+            useEffect(() => {
+                // Load categories for the dropdown
+                fetch('/api/v1/categories')
+                    .then(r => r.json())
+                    .then(data => setCategories(data.categories || []))
+                    .catch(console.error);
+            }, []);
+
+            const handleSubmit = async (e) => {
+                e.preventDefault();
+                setSaving(true);
+                
+                try {
+                    const csrfToken = document.querySelector('meta[name="csrf-token"]')?.getAttribute('content');
+                    const response = await fetch(`/api/v1/transactions/${transaction.id}`, {
+                        method: 'PATCH',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'X-CSRF-Token': csrfToken
+                        },
+                        body: JSON.stringify({ transaction: formData })
+                    });
+
+                    if (response.ok) {
+                        const updatedTransaction = await response.json();
+                        onSave(updatedTransaction.transaction);
+                        onClose();
+                    } else {
+                        const error = await response.json();
+                        alert('Error updating transaction: ' + (error.errors?.join(', ') || error.error));
+                    }
+                } catch (error) {
+                    alert('Network error: ' + error.message);
+                } finally {
+                    setSaving(false);
+                }
+            };
+
+            return h('div', { className: 'modal', onClick: onClose },
+                h('div', { 
+                    className: 'modal-content', 
+                    onClick: e => e.stopPropagation() 
+                },
+                    h('h3', null, 'Edit Transaction'),
+                    h('form', { onSubmit: handleSubmit },
+                        h('div', { className: 'form-group' },
+                            h('label', { htmlFor: 'edit-description' }, 'Description'),
+                            h('input', {
+                                id: 'edit-description',
+                                name: 'description',
+                                type: 'text',
+                                value: formData.description,
+                                onChange: e => setFormData({...formData, description: e.target.value}),
+                                required: true
+                            })
+                        ),
+                        h('div', { className: 'form-group' },
+                            h('label', { htmlFor: 'edit-amount' }, 'Amount'),
+                            h('input', {
+                                id: 'edit-amount',
+                                name: 'amount',
+                                type: 'number',
+                                step: '0.01',
+                                value: formData.amount,
+                                onChange: e => setFormData({...formData, amount: e.target.value}),
+                                required: true
+                            })
+                        ),
+                        h('div', { className: 'form-group' },
+                            h('label', { htmlFor: 'edit-date' }, 'Date'),
+                            h('input', {
+                                id: 'edit-date',
+                                name: 'transaction_date',
+                                type: 'date',
+                                value: formData.transaction_date,
+                                onChange: e => setFormData({...formData, transaction_date: e.target.value}),
+                                required: true
+                            })
+                        ),
+                        h('div', { className: 'form-group' },
+                            h('label', { htmlFor: 'edit-category' }, 'Category'),
+                            h('select', {
+                                id: 'edit-category',
+                                name: 'category_id',
+                                value: formData.category_id,
+                                onChange: e => setFormData({...formData, category_id: e.target.value})
+                            },
+                                h('option', { value: '' }, 'Select Category'),
+                                categories.map(cat => 
+                                    h('option', { key: cat.id, value: cat.id }, cat.name)
+                                )
+                            )
+                        ),
+                        h('div', { className: 'form-group' },
+                            h('label', { htmlFor: 'edit-status' }, 'Status'),
+                            h('select', {
+                                id: 'edit-status',
+                                name: 'status',
+                                value: formData.status,
+                                onChange: e => setFormData({...formData, status: e.target.value})
+                            },
+                                h('option', { value: 'pending' }, 'Pending'),
+                                h('option', { value: 'approved' }, 'Approved'),
+                                h('option', { value: 'flagged' }, 'Flagged'),
+                                h('option', { value: 'rejected' }, 'Rejected')
+                            )
+                        ),
+                        h('div', { className: 'modal-actions' },
+                            h('button', { 
+                                type: 'button', 
+                                className: 'btn btn-secondary',
+                                onClick: onClose,
+                                disabled: saving
+                            }, 'Cancel'),
+                            h('button', { 
+                                type: 'submit', 
+                                className: 'btn btn-primary',
+                                disabled: saving
+                            }, saving ? 'Saving...' : 'Save Changes')
+                        )
+                    )
+                )
+            );
+        };
+
+        // Transaction Card Component
+        const TransactionCard = ({ transaction, onEdit, onDelete, onApprove, onResolveAnomaly }) => {
+            return h('div', { className: 'transaction-card' },
+                h('div', { className: 'transaction-header' },
+                    h('div', { className: 'transaction-info' },
+                        h('h4', null, transaction.description),
+                        h('p', { className: 'transaction-meta' },
+                            `${formatDate(transaction.transaction_date)} • ${transaction.category || 'Uncategorized'} • Status: ${transaction.status}`
+                        )
+                    ),
+                    h('div', { 
+                        className: `transaction-amount ${transaction.amount >= 0 ? 'positive' : 'negative'}` 
+                    }, formatCurrency(Math.abs(transaction.amount)))
+                ),
+                
+                transaction.anomalies && transaction.anomalies.length > 0 && h('div', { className: 'anomalies-section' },
+                    h('h5', { style: { margin: '0 0 0.5rem 0', color: '#dc2626' } }, '⚠️ Anomalies Detected'),
+                    transaction.anomalies.map(anomaly =>
+                        h('div', { 
+                            key: anomaly.id, 
+                            className: `anomaly-item ${anomaly.severity >= 4 ? 'high-severity' : ''}` 
+                        },
+                            h('div', { className: 'anomaly-header' },
+                                h('span', { className: 'anomaly-type' }, 
+                                    anomaly.type.replace(/_/g, ' ').toUpperCase()
+                                ),
+                                h('span', { className: `severity-badge ${getSeverityClass(anomaly.severity)}` },
+                                    anomaly.severity_label
+                                ),
+                                h('button', {
+                                    className: 'btn btn-success',
+                                    style: { fontSize: '0.75rem', padding: '0.25rem 0.5rem' },
+                                    onClick: () => onResolveAnomaly(anomaly.id),
+                                    title: 'Mark as resolved'
+                                }, '✓ Resolve')
+                            ),
+                            h('p', { style: { margin: '0.5rem 0 0 0', fontSize: '0.875rem' } }, 
+                                anomaly.description
+                            )
+                        )
+                    )
+                ),
+                
+                h('div', { className: 'action-buttons' },
+                    h('button', { 
+                        className: 'btn btn-success',
+                        onClick: () => onApprove(transaction)
+                    }, '✓ Approve'),
+                    h('button', { 
+                        className: 'btn btn-primary',
+                        onClick: () => onEdit(transaction)
+                    }, '✏️ Edit'),
+                    h('button', { 
+                        className: 'btn btn-danger',
+                        onClick: () => onDelete(transaction)
+                    }, '🗑️ Delete')
+                )
+            );
+        };
+
+        // Main Review Component
+        const ReviewFlaggedTransactions = () => {
+            const [transactions, setTransactions] = useState([]);
+            const [loading, setLoading] = useState(true);
+            const [pagination, setPagination] = useState({});
+            const [currentPage, setCurrentPage] = useState(1);
+            const [editingTransaction, setEditingTransaction] = useState(null);
+            const [filters, setFilters] = useState({
+                status: 'flagged',  // Start with flagged filter as default
+                severity: '',
+                anomaly_type: ''
+            });
+
+            const loadTransactions = async (page = 1) => {
+                try {
+                    setLoading(true);
+                    const params = new URLSearchParams({
+                        page: page,
+                        per_page: 10
+                    });
+                    
+                    // Only add filters that have values
+                    Object.entries(filters).forEach(([key, value]) => {
+                        if (value && value.trim() !== '') {
+                            params.append(key, value);
+                        }
+                    });
+                    
+                    // Add show_all parameter when no status filter is selected (All Statuses)
+                    if (!filters.status || filters.status.trim() === '') {
+                        params.append('show_all', 'true');
+                    }
+                    
+                    const response = await fetch(`/api/v1/transactions/anomalies?${params}`);
+                    const data = await response.json();
+                    setTransactions(data.transactions || []);
+                    setPagination(data.pagination || {});
+                    setCurrentPage(page);
+                } catch (error) {
+                    console.error('Error loading transactions:', error);
+                    alert('Error loading transactions: ' + error.message);
+                } finally {
+                    setLoading(false);
+                }
+            };
+
+            useEffect(() => {
+                loadTransactions(1);
+            }, [filters]);
+
+            const handleApprove = async (transaction) => {
+                if (!confirm(`Approve transaction "${transaction.description}"?`)) return;
+                
+                try {
+                    const csrfToken = document.querySelector('meta[name="csrf-token"]')?.getAttribute('content');
+                    const response = await fetch(`/api/v1/transactions/${transaction.id}`, {
+                        method: 'PATCH',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'X-CSRF-Token': csrfToken
+                        },
+                        body: JSON.stringify({ 
+                            transaction: { status: 'approved' }
+                        })
+                    });
+
+                    if (response.ok) {
+                        loadTransactions(currentPage);
+                    } else {
+                        const error = await response.json();
+                        alert('Error approving transaction: ' + (error.errors?.join(', ') || error.error));
+                    }
+                } catch (error) {
+                    alert('Network error: ' + error.message);
+                }
+            };
+
+            const handleDelete = async (transaction) => {
+                if (!confirm(`Delete transaction "${transaction.description}"? This action cannot be undone.`)) return;
+                
+                try {
+                    const csrfToken = document.querySelector('meta[name="csrf-token"]')?.getAttribute('content');
+                    const response = await fetch(`/api/v1/transactions/${transaction.id}`, {
+                        method: 'DELETE',
+                        headers: {
+                            'X-CSRF-Token': csrfToken
+                        }
+                    });
+
+                    if (response.ok) {
+                        loadTransactions(currentPage);
+                    } else {
+                        const error = await response.json();
+                        alert('Error deleting transaction: ' + (error.error || 'Unknown error'));
+                    }
+                } catch (error) {
+                    alert('Network error: ' + error.message);
+                }
+            };
+
+            const handleResolveAnomaly = async (anomalyId) => {
+                try {
+                    const csrfToken = document.querySelector('meta[name="csrf-token"]')?.getAttribute('content');
+                    const response = await fetch(`/api/v1/anomaly_detections/${anomalyId}/resolve`, {
+                        method: 'PATCH',
+                        headers: {
+                            'X-CSRF-Token': csrfToken
+                        }
+                    });
+
+                    if (response.ok) {
+                        loadTransactions(currentPage);
+                    } else {
+                        const error = await response.json();
+                        alert('Error resolving anomaly: ' + (error.error || 'Unknown error'));
+                    }
+                } catch (error) {
+                    alert('Network error: ' + error.message);
+                }
+            };
+
+            const handleSaveEdit = (updatedTransaction) => {
+                loadTransactions(currentPage);
+            };
+
+            const getPageTitle = () => {
+                if (!filters.status || filters.status === '') {
+                    return 'All Transactions';
+                }
+                switch (filters.status) {
+                    case 'flagged': return 'Flagged Transactions';
+                    case 'pending': return 'Pending Transactions';
+                    case 'rejected': return 'Rejected Transactions';
+                    case 'approved': return 'Approved Transactions';
+                    default: return 'Transactions';
+                }
+            };
+
+            const getSectionTitle = () => {
+                if (!filters.status || filters.status === '') {
+                    return 'All Transactions';
+                }
+                switch (filters.status) {
+                    case 'flagged': return 'Flagged Transactions';
+                    case 'pending': return 'Pending Transactions';
+                    case 'rejected': return 'Rejected Transactions';
+                    case 'approved': return 'Approved Transactions';
+                    default: return 'Transactions';
+                }
+            };
+
+            return h('div', { className: 'review-container' },
+                h('a', { href: '/', className: 'back-link' }, '← Back to Dashboard'),
+                
+                h('div', { className: 'header' },
+                    h('h1', null, `🚨 Review ${getPageTitle()}`),
+                    h('p', null, 'Review and manage transactions that require attention')
+                ),
+
+                h('div', { className: 'filters' },
+                    h('h3', null, 'Filters'),
+                    h('div', { className: 'filter-grid' },
+                        h('div', { className: 'filter-group' },
+                            h('label', { htmlFor: 'status-filter' }, 'Status'),
+                            h('select', {
+                                id: 'status-filter',
+                                name: 'status',
+                                value: filters.status,
+                                onChange: e => setFilters({...filters, status: e.target.value})
+                            },
+                                h('option', { value: '' }, 'All Statuses'),
+                                h('option', { value: 'flagged' }, 'Flagged'),
+                                h('option', { value: 'pending' }, 'Pending'),
+                                h('option', { value: 'rejected' }, 'Rejected')
+                            )
+                        ),
+                        h('div', { className: 'filter-group' },
+                            h('label', { htmlFor: 'anomaly-type-filter' }, 'Anomaly Type'),
+                            h('select', {
+                                id: 'anomaly-type-filter',
+                                name: 'anomaly_type',
+                                value: filters.anomaly_type,
+                                onChange: e => setFilters({...filters, anomaly_type: e.target.value})
+                            },
+                                h('option', { value: '' }, 'All Types'),
+                                h('option', { value: 'unusual_amount' }, 'Unusual Amount'),
+                                h('option', { value: 'duplicate_transaction' }, 'Duplicate Transaction'),
+                                h('option', { value: 'incomplete_metadata' }, 'Incomplete Metadata'),
+                                h('option', { value: 'rule_based' }, 'Rule Based')
+                            )
+                        )
+                    )
+                ),
+
+                h('div', { className: 'transactions-section' },
+                    h('div', { className: 'section-header' },
+                        h('h2', null, `${getSectionTitle()} (${pagination.total_count || 0})`)
+                    ),
+
+                    loading ? h('div', { className: 'loading' }, 'Loading transactions...') :
+                    transactions.length === 0 ? h('div', { className: 'empty-state' }, 
+                        '🎉 No flagged transactions found!'
+                    ) : 
+                    transactions.map(transaction =>
+                        h(TransactionCard, {
+                            key: transaction.id,
+                            transaction,
+                            onEdit: setEditingTransaction,
+                            onDelete: handleDelete,
+                            onApprove: handleApprove,
+                            onResolveAnomaly: handleResolveAnomaly
+                        })
+                    ),
+
+                    pagination.total_pages > 1 && h('div', { className: 'pagination' },
+                        h('button', {
+                            disabled: !pagination.prev_page,
+                            onClick: () => loadTransactions(pagination.prev_page)
+                        }, '← Previous'),
+                        h('span', null, `Page ${pagination.current_page} of ${pagination.total_pages}`),
+                        h('button', {
+                            disabled: !pagination.next_page,
+                            onClick: () => loadTransactions(pagination.next_page)
+                        }, 'Next →')
+                    )
+                ),
+
+                editingTransaction && h(EditTransactionModal, {
+                    transaction: editingTransaction,
+                    onClose: () => setEditingTransaction(null),
+                    onSave: handleSaveEdit
+                })
+            );
+        };
+
+        // Render the app
+        const container = document.getElementById('react-app');
+        const root = ReactDOM.createRoot(container);
+        root.render(h(ReviewFlaggedTransactions));
+    </script>
+</body>
+</html>

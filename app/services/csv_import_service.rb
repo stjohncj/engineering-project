@@ -200,8 +200,12 @@ class CsvImportService
     # Clear all transaction-related caches after bulk import
     Rails.cache.delete("dashboard_statistics")
     Rails.cache.delete("recent_transactions")
+    Rails.cache.delete("active_anomalies")
     Rails.cache.delete("total_transactions_count")
     Rails.cache.delete("total_amount_sum")
+    Rails.cache.delete("active_rules_count")
+    Rails.cache.delete("unresolved_anomalies_count")
+    Rails.cache.delete("categories_count")
     Rails.cache.delete("monthly_transaction_trends")
     Rails.cache.delete("category_breakdown")
     Rails.cache.delete_matched("transactions_index_*")

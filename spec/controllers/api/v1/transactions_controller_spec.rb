@@ -44,6 +44,34 @@ RSpec.describe Api::V1::TransactionsController, type: :controller do
       expect(json['pagination']).to include('current_page', 'per_page', 'total_count', 'total_pages', 'next_page', 'prev_page')
     end
 
+    it 'handles unpermitted parameters gracefully' do
+      # This test catches ActionController::UnfilteredParameters errors
+      get :index, params: { 
+        malicious_param: 'hack_attempt',
+        another_bad_param: { nested: 'data' },
+        valid_param: 5
+      }
+      expect(response).to be_successful
+      json = JSON.parse(response.body)
+      expect(json).to have_key('transactions')
+      expect(json).to have_key('pagination')
+    end
+
+    it 'does not crash with complex parameter combinations' do
+      # Test the exact scenario that caused our bug
+      get :index, params: { 
+        page: 1, 
+        per_page: 10,
+        category_id: 1,
+        status: 'pending',
+        search: 'test',
+        format: 'json'
+      }
+      expect(response).to be_successful
+      json = JSON.parse(response.body)
+      expect(json['pagination']['total_count']).to be >= 0
+    end
+
     it 'caches the response for 2 minutes' do
       expect(Rails.cache).to receive(:fetch).with(
         a_string_starting_with("transactions_index_"),
@@ -99,17 +127,62 @@ RSpec.describe Api::V1::TransactionsController, type: :controller do
     context 'with pagination' do
       let!(:many_transactions) { create_list(:transaction, 25) }
 
-      it 'paginates results' do
+      it 'paginates results correctly' do
         get :index, params: { per_page: 10 }
         json = JSON.parse(response.body)
         expect(json['transactions'].length).to eq(10)
         expect(json['pagination']['total_count']).to eq(28) # 25 + 3 from earlier
+        expect(json['pagination']['per_page']).to eq(10)
+        expect(json['pagination']['total_pages']).to eq(3)
       end
 
       it 'returns specific page' do
         get :index, params: { page: 2, per_page: 10 }
         json = JSON.parse(response.body)
         expect(json['pagination']['current_page']).to eq(2)
+        expect(json['pagination']['prev_page']).to eq(1)
+        expect(json['pagination']['next_page']).to eq(3)
+      end
+
+      it 'ensures total_count is never zero when transactions exist' do
+        # This test catches the bug we just fixed where total_count was 0
+        get :index, params: { per_page: 5 }
+        json = JSON.parse(response.body)
+        expect(json['pagination']['total_count']).to be > 0
+        expect(json['pagination']['total_count']).to eq(Transaction.count)
+      end
+
+      it 'calculates total_pages correctly based on total_count' do
+        total_transactions = Transaction.count
+        per_page = 7
+        expected_pages = (total_transactions.to_f / per_page).ceil
+        
+        get :index, params: { per_page: per_page }
+        json = JSON.parse(response.body)
+        expect(json['pagination']['total_pages']).to eq(expected_pages)
+      end
+
+      it 'handles edge case with exact page boundary' do
+        # Create exact multiple of page size to test boundary conditions
+        Transaction.delete_all
+        create_list(:transaction, 20) # Exactly 4 pages of 5
+        
+        get :index, params: { per_page: 5 }
+        json = JSON.parse(response.body)
+        expect(json['pagination']['total_count']).to eq(20)
+        expect(json['pagination']['total_pages']).to eq(4)
+        expect(json['pagination']['next_page']).to eq(2)
+      end
+
+      it 'handles last page correctly' do
+        total_count = Transaction.count
+        per_page = 10
+        last_page = (total_count.to_f / per_page).ceil
+        
+        get :index, params: { page: last_page, per_page: per_page }
+        json = JSON.parse(response.body)
+        expect(json['pagination']['current_page']).to eq(last_page)
+        expect(json['pagination']['next_page']).to be_nil
       end
     end
   end
@@ -424,9 +497,135 @@ RSpec.describe Api::V1::TransactionsController, type: :controller do
 
     it 'eager loads associations' do
       expect(Transaction).to receive(:with_anomalies).and_call_original
-      expect_any_instance_of(ActiveRecord::Relation).to receive(:includes).with(:category, :anomaly_detections).and_call_original
+      expect_any_instance_of(ActiveRecord::Relation).to receive(:includes).with(:category).and_call_original
 
       get :anomalies
+    end
+
+    it 'includes pagination metadata' do
+      get :anomalies
+      json = JSON.parse(response.body)
+      expect(json).to have_key('pagination')
+      expect(json['pagination']).to include('current_page', 'per_page', 'total_count', 'total_pages')
+    end
+
+    it 'handles pagination correctly' do
+      # Create more transactions with anomalies
+      5.times { create(:anomaly_detection, transaction_record: create(:transaction)) }
+      
+      get :anomalies, params: { per_page: 2 }
+      json = JSON.parse(response.body)
+      expect(json['transactions'].length).to eq(2)
+      expect(json['pagination']['total_count']).to be > 0
+      expect(json['pagination']['per_page']).to eq(2)
+    end
+
+    context 'with status filtering' do
+      let!(:flagged_transaction) { create(:transaction, status: 'flagged') }
+      let!(:pending_transaction) { create(:transaction, status: 'pending') }
+      let!(:flagged_anomaly) { create(:anomaly_detection, transaction_record: flagged_transaction) }
+      let!(:pending_anomaly) { create(:anomaly_detection, transaction_record: pending_transaction) }
+
+      it 'filters by flagged status' do
+        get :anomalies, params: { status: 'flagged' }
+        json = JSON.parse(response.body)
+        expect(json['transactions'].length).to eq(1)
+        expect(json['transactions'].first['status']).to eq('flagged')
+        expect(json['transactions'].first['id']).to eq(flagged_transaction.id)
+      end
+
+      it 'filters by pending status' do
+        get :anomalies, params: { status: 'pending' }
+        json = JSON.parse(response.body)
+        # Should include pending transactions (with and without anomalies)
+        pending_transaction_ids = json['transactions'].map { |t| t['id'] }
+        expect(pending_transaction_ids).to include(pending_transaction.id)
+      end
+
+      it 'shows transactions with anomalies when no status filter provided' do
+        get :anomalies
+        json = JSON.parse(response.body)
+        # Should show transactions that have anomalies regardless of status
+        transaction_ids = json['transactions'].map { |t| t['id'] }
+        expect(transaction_ids).to include(flagged_transaction.id)
+        expect(transaction_ids).to include(pending_transaction.id)
+      end
+    end
+
+    context 'with anomaly type filtering' do
+      before do
+        # Clean up any existing test data to avoid interference
+        AnomalyDetection.delete_all
+        Transaction.delete_all
+      end
+
+      let!(:unusual_amount_transaction) { create(:transaction) }
+      let!(:duplicate_transaction) { create(:transaction) }
+      let!(:unusual_anomaly) { create(:anomaly_detection, transaction_record: unusual_amount_transaction, anomaly_type: 'unusual_amount') }
+      let!(:duplicate_anomaly) { create(:anomaly_detection, transaction_record: duplicate_transaction, anomaly_type: 'duplicate_transaction') }
+
+      it 'filters by unusual_amount anomaly type' do
+        get :anomalies, params: { anomaly_type: 'unusual_amount' }
+        json = JSON.parse(response.body)
+        expect(json['transactions'].length).to eq(1)
+        expect(json['transactions'].first['id']).to eq(unusual_amount_transaction.id)
+      end
+
+      it 'filters by duplicate_transaction anomaly type' do
+        get :anomalies, params: { anomaly_type: 'duplicate_transaction' }
+        json = JSON.parse(response.body)
+        expect(json['transactions'].length).to eq(1)
+        expect(json['transactions'].first['id']).to eq(duplicate_transaction.id)
+      end
+    end
+
+    context 'with combined filtering' do
+      let!(:flagged_unusual) { create(:transaction, status: 'flagged') }
+      let!(:pending_unusual) { create(:transaction, status: 'pending') }
+      let!(:flagged_unusual_anomaly) { create(:anomaly_detection, transaction_record: flagged_unusual, anomaly_type: 'unusual_amount') }
+      let!(:pending_unusual_anomaly) { create(:anomaly_detection, transaction_record: pending_unusual, anomaly_type: 'unusual_amount') }
+
+      it 'can combine status and anomaly type filters' do
+        get :anomalies, params: { status: 'flagged', anomaly_type: 'unusual_amount' }
+        json = JSON.parse(response.body)
+        expect(json['transactions'].length).to eq(1)
+        expect(json['transactions'].first['id']).to eq(flagged_unusual.id)
+        expect(json['transactions'].first['status']).to eq('flagged')
+      end
+    end
+
+    context 'with show_all parameter' do
+      it 'returns all transactions when show_all=true' do
+        get :anomalies, params: { show_all: 'true' }
+        json = JSON.parse(response.body)
+        
+        # Should return both transactions with and without anomalies
+        expect(json['transactions'].length).to be >= 2
+        transaction_ids = json['transactions'].map { |t| t['id'] }
+        expect(transaction_ids).to include(transaction_with_anomaly.id)
+        expect(transaction_ids).to include(normal_transaction.id)
+      end
+
+      it 'still applies other filters when show_all=true' do
+        # Create a pending transaction and a flagged transaction
+        pending_transaction = create(:transaction, status: 'pending')
+        flagged_transaction = create(:transaction, status: 'flagged')
+        
+        get :anomalies, params: { show_all: 'true', status: 'pending' }
+        json = JSON.parse(response.body)
+        
+        # Should only return pending transactions
+        expect(json['transactions'].all? { |t| t['status'] == 'pending' }).to be true
+      end
+
+      it 'defaults to transactions with anomalies when show_all is not specified' do
+        get :anomalies
+        json = JSON.parse(response.body)
+        
+        # Should only return transactions with anomalies (default behavior)
+        expect(json['transactions'].length).to eq(1)
+        expect(json['transactions'].first['id']).to eq(transaction_with_anomaly.id)
+      end
     end
   end
 end
