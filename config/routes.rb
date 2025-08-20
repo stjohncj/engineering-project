@@ -1,4 +1,28 @@
 Rails.application.routes.draw do
+  get "dashboard/index"
+  get "upload" => "dashboard#upload"
+  namespace :api do
+    namespace :v1 do
+      get "anomaly_detections/index"
+      get "anomaly_detections/show"
+      get "anomaly_detections/update"
+      get "anomaly_detections/resolve"
+      resources :transactions do
+        collection do
+          patch :bulk_update
+          post :import_csv
+          get :anomalies
+        end
+      end
+      resources :categories
+      resources :rules
+      resources :anomaly_detections, only: [:index, :show, :update] do
+        member do
+          patch :resolve
+        end
+      end
+    end
+  end
   # Define your application routes per the DSL in https://guides.rubyonrails.org/routing.html
 
   # Reveal health status on /up that returns 200 if the app boots with no exceptions, otherwise 500.
@@ -10,5 +34,5 @@ Rails.application.routes.draw do
   # get "service-worker" => "rails/pwa#service_worker", as: :pwa_service_worker
 
   # Defines the root path route ("/")
-  # root "posts#index"
+  root "dashboard#index"
 end

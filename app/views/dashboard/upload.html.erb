@@ -1,0 +1,373 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>CSV Import - Bookkeeping System</title>
+    <%= csrf_meta_tags %>
+    <%= csp_meta_tag %>
+    <%= stylesheet_link_tag "application", "data-turbo-track": "reload" %>
+    
+    <!-- React from CDN -->
+    <script crossorigin src="https://unpkg.com/react@18/umd/react.development.js"></script>
+    <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.development.js"></script>
+    
+    <style>
+        body {
+            margin: 0;
+            padding: 0;
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+        }
+        
+        .upload-container {
+            max-width: 800px;
+            margin: 2rem auto;
+            padding: 2rem;
+        }
+        
+        .upload-header {
+            text-align: center;
+            margin-bottom: 3rem;
+        }
+        
+        .upload-header h1 {
+            color: #2563eb;
+            margin-bottom: 0.5rem;
+        }
+        
+        .upload-form {
+            background: white;
+            border-radius: 12px;
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+            padding: 2rem;
+            margin-bottom: 2rem;
+        }
+        
+        .file-input-container {
+            border: 2px dashed #d1d5db;
+            border-radius: 8px;
+            padding: 2rem;
+            text-align: center;
+            transition: all 0.2s;
+        }
+        
+        .file-input-container:hover {
+            border-color: #2563eb;
+            background: #f8fafc;
+        }
+        
+        .file-input-container.drag-over {
+            border-color: #2563eb;
+            background: #eff6ff;
+        }
+        
+        .file-input {
+            display: none;
+        }
+        
+        .file-input-label {
+            cursor: pointer;
+            color: #374151;
+            font-weight: 500;
+        }
+        
+        .upload-btn {
+            background: #2563eb;
+            color: white;
+            border: none;
+            padding: 0.75rem 1.5rem;
+            border-radius: 6px;
+            font-weight: 500;
+            cursor: pointer;
+            transition: background 0.2s;
+            margin-top: 1rem;
+        }
+        
+        .upload-btn:hover:not(:disabled) {
+            background: #1d4ed8;
+        }
+        
+        .upload-btn:disabled {
+            background: #9ca3af;
+            cursor: not-allowed;
+        }
+        
+        .back-link {
+            display: inline-flex;
+            align-items: center;
+            color: #2563eb;
+            text-decoration: none;
+            font-weight: 500;
+            margin-bottom: 2rem;
+        }
+        
+        .back-link:hover {
+            color: #1d4ed8;
+        }
+        
+        .progress-bar {
+            width: 100%;
+            height: 8px;
+            background: #e5e7eb;
+            border-radius: 4px;
+            overflow: hidden;
+            margin: 1rem 0;
+        }
+        
+        .progress-fill {
+            height: 100%;
+            background: #2563eb;
+            transition: width 0.3s;
+        }
+        
+        .result-message {
+            padding: 1rem;
+            border-radius: 6px;
+            margin-top: 1rem;
+        }
+        
+        .result-success {
+            background: #d1fae5;
+            color: #065f46;
+            border: 1px solid #a7f3d0;
+        }
+        
+        .result-error {
+            background: #fee2e2;
+            color: #991b1b;
+            border: 1px solid #fecaca;
+        }
+        
+        .result-warning {
+            background: #fef3c7;
+            color: #92400e;
+            border: 1px solid #fde68a;
+        }
+        
+        .result-details {
+            margin-top: 1rem;
+            font-size: 0.875rem;
+        }
+        
+        .error-list {
+            list-style: none;
+            padding: 0;
+            margin: 0.5rem 0;
+        }
+        
+        .error-list li {
+            padding: 0.25rem 0;
+            border-bottom: 1px solid rgba(0,0,0,0.1);
+        }
+        
+        .loading {
+            text-align: center;
+            color: #6b7280;
+            padding: 2rem;
+        }
+    </style>
+</head>
+<body>
+    <div id="react-app"></div>
+    
+    <script>
+        const { useState, useRef, createElement: h } = React;
+        
+        // Upload Component
+        const Upload = () => {
+            const [file, setFile] = useState(null);
+            const [uploading, setUploading] = useState(false);
+            const [progress, setProgress] = useState(0);
+            const [result, setResult] = useState(null);
+            const [dragOver, setDragOver] = useState(false);
+            const fileInputRef = useRef(null);
+            
+            const handleFileSelect = (selectedFile) => {
+                if (selectedFile && selectedFile.type === 'text/csv') {
+                    setFile(selectedFile);
+                    setResult(null);
+                } else {
+                    setResult({
+                        type: 'error',
+                        message: 'Please select a valid CSV file.',
+                        details: null
+                    });
+                }
+            };
+            
+            const handleDragOver = (e) => {
+                e.preventDefault();
+                setDragOver(true);
+            };
+            
+            const handleDragLeave = (e) => {
+                e.preventDefault();
+                setDragOver(false);
+            };
+            
+            const handleDrop = (e) => {
+                e.preventDefault();
+                setDragOver(false);
+                const droppedFile = e.dataTransfer.files[0];
+                handleFileSelect(droppedFile);
+            };
+            
+            const handleUpload = async () => {
+                if (!file) {
+                    setResult({
+                        type: 'error',
+                        message: 'Please select a file first.',
+                        details: null
+                    });
+                    return;
+                }
+                
+                setUploading(true);
+                setProgress(0);
+                setResult(null);
+                
+                const formData = new FormData();
+                formData.append('file', file);
+                
+                try {
+                    const csrfToken = document.querySelector('meta[name="csrf-token"]')?.getAttribute('content');
+                    
+                    // Simulate progress for better UX
+                    const progressInterval = setInterval(() => {
+                        setProgress(prev => Math.min(prev + 10, 90));
+                    }, 200);
+                    
+                    const response = await fetch('/api/v1/transactions/import', {
+                        method: 'POST',
+                        headers: {
+                            'X-CSRF-Token': csrfToken
+                        },
+                        body: formData
+                    });
+                    
+                    clearInterval(progressInterval);
+                    setProgress(100);
+                    
+                    const data = await response.json();
+                    
+                    if (response.ok) {
+                        setResult({
+                            type: 'success',
+                            message: `Successfully processed ${data.processed_count} transactions.`,
+                            details: {
+                                imported: data.imported_count,
+                                duplicates: data.duplicate_count,
+                                errors: data.error_count,
+                                anomalies: data.anomaly_count
+                            }
+                        });
+                        
+                        // Clear file after successful upload
+                        setFile(null);
+                        if (fileInputRef.current) {
+                            fileInputRef.current.value = '';
+                        }
+                    } else {
+                        setResult({
+                            type: 'error',
+                            message: data.error || 'Upload failed',
+                            details: data.errors || null
+                        });
+                    }
+                } catch (error) {
+                    setResult({
+                        type: 'error',
+                        message: 'Network error occurred during upload.',
+                        details: error.message
+                    });
+                } finally {
+                    setUploading(false);
+                    setTimeout(() => setProgress(0), 1000);
+                }
+            };
+            
+            const formatFileSize = (bytes) => {
+                if (bytes === 0) return '0 Bytes';
+                const k = 1024;
+                const sizes = ['Bytes', 'KB', 'MB', 'GB'];
+                const i = Math.floor(Math.log(bytes) / Math.log(k));
+                return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
+            };
+            
+            return h('div', { className: 'upload-container' },
+                h('a', { href: '/', className: 'back-link' }, '← Back to Dashboard'),
+                
+                h('div', { className: 'upload-header' },
+                    h('h1', null, '📁 CSV Import'),
+                    h('p', null, 'Upload your transaction CSV file for automated processing and categorization')
+                ),
+                
+                h('div', { className: 'upload-form' },
+                    h('div', { 
+                        className: `file-input-container ${dragOver ? 'drag-over' : ''}`,
+                        onDragOver: handleDragOver,
+                        onDragLeave: handleDragLeave,
+                        onDrop: handleDrop
+                    },
+                        h('input', {
+                            ref: fileInputRef,
+                            type: 'file',
+                            accept: '.csv',
+                            className: 'file-input',
+                            onChange: (e) => handleFileSelect(e.target.files[0])
+                        }),
+                        h('label', { 
+                            className: 'file-input-label',
+                            onClick: () => fileInputRef.current?.click()
+                        },
+                            file ? h('div', null,
+                                h('p', { style: { margin: 0, fontWeight: 600 } }, `📄 ${file.name}`),
+                                h('p', { style: { margin: '0.5rem 0 0 0', color: '#6b7280' } }, formatFileSize(file.size))
+                            ) : h('div', null,
+                                h('p', { style: { margin: 0 } }, '🎯 Click to select CSV file or drag & drop'),
+                                h('p', { style: { margin: '0.5rem 0 0 0', color: '#6b7280', fontSize: '0.875rem' } }, 
+                                    'Supports standard CSV format with headers: date, description, amount, category')
+                            )
+                        )
+                    ),
+                    
+                    uploading && h('div', { className: 'progress-bar' },
+                        h('div', { className: 'progress-fill', style: { width: `${progress}%` } })
+                    ),
+                    
+                    h('button', {
+                        className: 'upload-btn',
+                        onClick: handleUpload,
+                        disabled: !file || uploading
+                    }, uploading ? '⏳ Processing...' : '🚀 Import Transactions')
+                ),
+                
+                result && h('div', { className: `result-message result-${result.type}` },
+                    h('p', { style: { margin: 0, fontWeight: 600 } }, result.message),
+                    result.details && h('div', { className: 'result-details' },
+                        typeof result.details === 'object' && !Array.isArray(result.details) 
+                            ? h('div', null,
+                                result.details.imported && h('p', null, `✅ Imported: ${result.details.imported}`),
+                                result.details.duplicates && h('p', null, `🔄 Duplicates skipped: ${result.details.duplicates}`),
+                                result.details.anomalies && h('p', null, `⚠️ Anomalies detected: ${result.details.anomalies}`),
+                                result.details.errors && h('p', null, `❌ Errors: ${result.details.errors}`)
+                            )
+                            : Array.isArray(result.details) 
+                                ? h('ul', { className: 'error-list' },
+                                    result.details.map((error, index) => 
+                                        h('li', { key: index }, error)
+                                    )
+                                )
+                                : h('p', null, result.details)
+                    )
+                )
+            );
+        };
+        
+        // Render the app
+        const container = document.getElementById('react-app');
+        const root = ReactDOM.createRoot(container);
+        root.render(h(Upload));
+    </script>
+</body>
+</html>

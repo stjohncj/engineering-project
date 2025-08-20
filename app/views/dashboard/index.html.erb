@@ -1,0 +1,305 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Bookkeeping System Dashboard</title>
+    <%= csrf_meta_tags %>
+    <%= csp_meta_tag %>
+    <%= stylesheet_link_tag "application", "data-turbo-track": "reload" %>
+    
+    <!-- React from CDN -->
+    <script crossorigin src="https://unpkg.com/react@18/umd/react.development.js"></script>
+    <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.development.js"></script>
+    
+    <style>
+        body {
+            margin: 0;
+            padding: 0;
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+        }
+    </style>
+</head>
+<body>
+    <div id="react-app"></div>
+    
+    <script>
+        const { useState, useEffect, createElement: h } = React;
+        
+        // Utility functions
+        const formatCurrency = (amount) => {
+            return new Intl.NumberFormat('en-US', {
+                style: 'currency',
+                currency: 'USD'
+            }).format(amount);
+        };
+
+        const formatDate = (dateString) => {
+            return new Date(dateString).toLocaleDateString('en-US', {
+                year: 'numeric',
+                month: 'short',
+                day: 'numeric'
+            });
+        };
+
+        // StatsCards Component
+        const StatsCards = ({ stats, loading }) => {
+            const statsConfig = [
+                { key: 'transactions', label: 'Total Transactions', icon: '💰', color: 'blue' },
+                { key: 'categories', label: 'Categories', icon: '📂', color: 'green' },
+                { key: 'anomalies', label: 'Unresolved Anomalies', icon: '⚠️', color: 'orange' },
+                { key: 'rules', label: 'Active Rules', icon: '⚙️', color: 'purple' }
+            ];
+
+            return h('div', { className: 'stats-grid' },
+                statsConfig.map(({ key, label, icon, color }) =>
+                    h('div', { key, className: `stat-card ${color}` },
+                        h('div', { className: 'stat-icon' }, icon),
+                        h('div', { className: 'stat-number' }, loading ? '-' : stats[key]),
+                        h('div', { className: 'stat-label' }, label)
+                    )
+                )
+            );
+        };
+
+        // TransactionList Component
+        const TransactionList = ({ limit = 5 }) => {
+            const [transactions, setTransactions] = useState([]);
+            const [loading, setLoading] = useState(true);
+
+            useEffect(() => {
+                const loadTransactions = async () => {
+                    try {
+                        setLoading(true);
+                        const response = await fetch(`/api/v1/transactions?per_page=${limit}`);
+                        const data = await response.json();
+                        setTransactions(data.transactions || []);
+                    } catch (error) {
+                        console.error('Error loading transactions:', error);
+                    } finally {
+                        setLoading(false);
+                    }
+                };
+                loadTransactions();
+            }, [limit]);
+
+            const getStatusBadgeClass = (status) => {
+                const statusClasses = {
+                    pending: 'status-pending',
+                    approved: 'status-approved',
+                    flagged: 'status-flagged',
+                    rejected: 'status-rejected'
+                };
+                return statusClasses[status] || 'status-pending';
+            };
+
+            if (loading) {
+                return h('div', { className: 'loading' }, 'Loading transactions...');
+            }
+
+            if (transactions.length === 0) {
+                return h('div', { className: 'empty-state' }, 'No transactions found.');
+            }
+
+            return h('div', { className: 'transaction-list' },
+                transactions.map(transaction =>
+                    h('div', { key: transaction.id, className: 'transaction-item' },
+                        h('div', { className: 'transaction-info' },
+                            h('h4', null, transaction.description),
+                            h('p', { className: 'transaction-meta' },
+                                `${formatDate(transaction.transaction_date)} • ${transaction.category || 'Uncategorized'}`
+                            ),
+                            h('span', { className: `status-badge ${getStatusBadgeClass(transaction.status)}` },
+                                transaction.status
+                            ),
+                            transaction.anomalies && transaction.anomalies.length > 0 && 
+                                h('span', { className: 'anomaly-indicator' },
+                                    `⚠️ ${transaction.anomalies.length} anomal${transaction.anomalies.length > 1 ? 'ies' : 'y'}`
+                                )
+                        ),
+                        h('div', { 
+                            className: `transaction-amount ${transaction.amount >= 0 ? 'positive' : 'negative'}` 
+                        }, formatCurrency(Math.abs(transaction.amount)))
+                    )
+                )
+            );
+        };
+
+        // AnomalyList Component
+        const AnomalyList = ({ limit = 5 }) => {
+            const [anomalies, setAnomalies] = useState([]);
+            const [loading, setLoading] = useState(true);
+
+            useEffect(() => {
+                const loadAnomalies = async () => {
+                    try {
+                        setLoading(true);
+                        const response = await fetch(`/api/v1/anomaly_detections?unresolved=true&per_page=${limit}`);
+                        const data = await response.json();
+                        setAnomalies(data.anomaly_detections || []);
+                    } catch (error) {
+                        console.error('Error loading anomalies:', error);
+                    } finally {
+                        setLoading(false);
+                    }
+                };
+                loadAnomalies();
+            }, [limit]);
+
+            const getSeverityColor = (severity) => {
+                const colors = {
+                    1: '#10b981', 2: '#f59e0b', 3: '#ef4444', 4: '#dc2626', 5: '#7c2d12'
+                };
+                return colors[severity] || '#f59e0b';
+            };
+
+            const formatAnomalyType = (type) => {
+                return type.replace(/_/g, ' ').toUpperCase();
+            };
+
+            const resolveAnomaly = async (anomalyId) => {
+                try {
+                    const csrfToken = document.querySelector('meta[name="csrf-token"]')?.getAttribute('content');
+                    const response = await fetch(`/api/v1/anomaly_detections/${anomalyId}/resolve`, {
+                        method: 'PATCH',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'X-CSRF-Token': csrfToken
+                        }
+                    });
+
+                    if (response.ok) {
+                        setAnomalies(prev => prev.filter(anomaly => anomaly.id !== anomalyId));
+                    }
+                } catch (error) {
+                    console.error('Error resolving anomaly:', error);
+                }
+            };
+
+            if (loading) {
+                return h('div', { className: 'loading' }, 'Loading anomalies...');
+            }
+
+            if (anomalies.length === 0) {
+                return h('div', { className: 'empty-state' }, '🎉 No unresolved anomalies!');
+            }
+
+            return h('div', { className: 'anomaly-list' },
+                anomalies.map(anomaly =>
+                    h('div', { key: anomaly.id, className: 'anomaly-item' },
+                        h('div', { className: 'anomaly-header' },
+                            h('div', { 
+                                className: 'anomaly-severity',
+                                style: { borderLeft: `4px solid ${getSeverityColor(anomaly.severity)}` }
+                            }, `${anomaly.severity_label} Severity`),
+                            h('button', { 
+                                className: 'resolve-btn',
+                                onClick: () => resolveAnomaly(anomaly.id),
+                                title: 'Mark as resolved'
+                            }, '✓')
+                        ),
+                        h('div', { className: 'anomaly-content' },
+                            h('h5', null, formatAnomalyType(anomaly.anomaly_type)),
+                            h('p', null, anomaly.description),
+                            anomaly.transaction_id && h('small', { className: 'anomaly-meta' },
+                                `Transaction ID: ${anomaly.transaction_id}`
+                            )
+                        )
+                    )
+                )
+            );
+        };
+
+        // Main Dashboard Component
+        const Dashboard = () => {
+            const [stats, setStats] = useState({
+                transactions: 0, categories: 0, anomalies: 0, rules: 0
+            });
+            const [loading, setLoading] = useState(true);
+
+            const loadStats = async () => {
+                try {
+                    setLoading(true);
+                    const [transactions, categories, anomalies, rules] = await Promise.all([
+                        fetch('/api/v1/transactions').then(r => r.json()),
+                        fetch('/api/v1/categories').then(r => r.json()),
+                        fetch('/api/v1/anomaly_detections?unresolved=true').then(r => r.json()),
+                        fetch('/api/v1/rules').then(r => r.json())
+                    ]);
+
+                    setStats({
+                        transactions: transactions.pagination?.total_count || transactions.transactions?.length || 0,
+                        categories: categories.categories?.length || 0,
+                        anomalies: anomalies.pagination?.total_count || anomalies.anomaly_detections?.length || 0,
+                        rules: rules.rules?.length || 0
+                    });
+                } catch (error) {
+                    console.error('Error loading stats:', error);
+                } finally {
+                    setLoading(false);
+                }
+            };
+
+            useEffect(() => {
+                loadStats();
+            }, []);
+
+            const refreshDashboard = () => {
+                loadStats();
+            };
+
+            return h('div', { className: 'dashboard' },
+                h('div', { className: 'dashboard-header' },
+                    h('h1', null, '📊 Bookkeeping System'),
+                    h('p', null, 'Automated Transaction Management & Anomaly Detection')
+                ),
+                h('div', { className: 'dashboard-container' },
+                    h(StatsCards, { stats, loading }),
+                    h('div', { className: 'dashboard-grid' },
+                        h('div', { className: 'panel' },
+                            h('div', { className: 'panel-header' },
+                                h('h3', null, 'Recent Transactions')
+                            ),
+                            h('div', { className: 'panel-content' },
+                                h(TransactionList, { limit: 5 })
+                            )
+                        ),
+                        h('div', { className: 'panel' },
+                            h('div', { className: 'panel-header' },
+                                h('h3', null, 'Active Anomalies')
+                            ),
+                            h('div', { className: 'panel-content' },
+                                h(AnomalyList, { limit: 5 })
+                            )
+                        )
+                    ),
+                    h('div', { style: { display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '2rem' } },
+                        h('div', { className: 'actions-panel' },
+                            h('h3', null, '🚀 Quick Actions'),
+                            h('div', { className: 'action-buttons' },
+                                h('a', { href: '/upload', className: 'action-btn primary' }, '📁 Import CSV Transactions'),
+                                h('a', { href: '/api/v1/transactions/anomalies', target: '_blank', className: 'action-btn warning' }, '🚨 Review Flagged Transactions'),
+                                h('button', { onClick: refreshDashboard, className: 'action-btn secondary' }, '🔄 Refresh Dashboard')
+                            )
+                        ),
+                        h('div', { className: 'actions-panel' },
+                            h('h3', null, '🔗 API Endpoints'),
+                            h('div', { className: 'api-links' },
+                                h('a', { href: '/api/v1/transactions', target: '_blank' }, 'View All Transactions'),
+                                h('a', { href: '/api/v1/categories', target: '_blank' }, 'View Categories'),
+                                h('a', { href: '/api/v1/anomaly_detections?unresolved=true', target: '_blank' }, 'View Unresolved Anomalies'),
+                                h('a', { href: '/api/v1/rules', target: '_blank' }, 'View Active Rules')
+                            )
+                        )
+                    )
+                )
+            );
+        };
+
+        // Render the app
+        const container = document.getElementById('react-app');
+        const root = ReactDOM.createRoot(container);
+        root.render(h(Dashboard));
+    </script>
+</body>
+</html>
