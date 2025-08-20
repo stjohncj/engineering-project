@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.0].define(version: 2025_08_20_184514) do
+ActiveRecord::Schema[8.0].define(version: 2025_08_20_195449) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "pg_catalog.plpgsql"
 
@@ -22,6 +22,9 @@ ActiveRecord::Schema[8.0].define(version: 2025_08_20_184514) do
     t.boolean "resolved"
     t.datetime "created_at", null: false
     t.datetime "updated_at", null: false
+    t.json "metadata"
+    t.datetime "detected_at"
+    t.datetime "resolved_at"
     t.index ["transaction_record_id"], name: "index_anomaly_detections_on_transaction_record_id"
   end
 

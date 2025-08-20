@@ -1,25 +1,45 @@
 class AnomalyDetection < ApplicationRecord
   belongs_to :transaction_record, class_name: 'Transaction'
   
-  validates :anomaly_type, presence: true, inclusion: { in: %w[unusual_amount potential_duplicate incomplete_metadata rule_based] }
+  # Alias for easier access in tests and API
+  def transaction
+    transaction_record
+  end
+  
+  def transaction=(trans)
+    self.transaction_record = trans
+  end
+  
+  validates :anomaly_type, presence: true
   validates :severity, presence: true, inclusion: { in: 1..5 }
   validates :description, presence: true
   
   scope :unresolved, -> { where(resolved: false) }
+  scope :resolved, -> { where(resolved: true) }
   scope :by_severity, ->(severity) { where(severity: severity) }
   scope :by_type, ->(type) { where(anomaly_type: type) }
+  
+  before_create :set_detected_at
   
   def severity_label
     case severity
     when 1 then 'Low'
-    when 2 then 'Medium'
-    when 3 then 'High'
-    when 4 then 'Critical'
-    when 5 then 'Urgent'
+    when 2 then 'Low-Medium'
+    when 3 then 'Medium'
+    when 4 then 'High'
+    when 5 then 'Critical'
     end
   end
   
   def resolve!
-    update!(resolved: true)
+    return if resolved?
+    
+    update!(resolved: true, resolved_at: Time.current)
+  end
+  
+  private
+  
+  def set_detected_at
+    self.detected_at ||= Time.current
   end
 end

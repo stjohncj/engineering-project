@@ -64,6 +64,9 @@ coverage/
 .rspec_status
 .byebug_history
 
+# Old Rails test files (we use RSpec)
+test/
+
 # Sample/test data files (optional - you might want to keep these)
 sample_transactions.csv
 test_transactions.csv
