@@ -7,7 +7,7 @@
 .dashboard-header {
   background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
   color: white;
-  padding: 2rem 0;
+  padding: 2rem 1.5rem;
   text-align: center;
   box-shadow: 0 2px 10px rgba(0,0,0,0.1);
 }
@@ -362,7 +362,7 @@
 .upload-header {
   background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
   color: white;
-  padding: 2rem 0;
+  padding: 2rem 1.5rem;
   text-align: center;
   box-shadow: 0 2px 10px rgba(0,0,0,0.1);
 }
