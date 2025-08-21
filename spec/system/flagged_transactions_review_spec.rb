@@ -799,4 +799,167 @@ RSpec.describe 'Flagged Transactions Review', type: :system do
       expect(status_select.value).to eq('flagged')
     end
   end
+
+  describe 'bulk category assignment' do
+    before do
+      # Create additional flagged transactions for bulk operations
+      @second_flagged = create(:transaction,
+        description: 'Second flagged transaction',
+        amount: 1500.00,
+        status: 'flagged',
+        category: @category
+      )
+      
+      @third_flagged = create(:transaction,
+        description: 'Third flagged transaction', 
+        amount: 2500.00,
+        status: 'flagged',
+        category: @transport_category
+      )
+      
+      # Create anomalies for the new transactions
+      create(:anomaly_detection,
+        transaction_record: @second_flagged,
+        anomaly_type: 'unusual_amount',
+        severity: 3,
+        description: 'Moderately high amount'
+      )
+      
+      create(:anomaly_detection,
+        transaction_record: @third_flagged,
+        anomaly_type: 'unusual_amount',
+        severity: 5,
+        description: 'Very high amount'
+      )
+    end
+
+    it 'shows checkboxes for each transaction', js: true do
+      visit '/review'
+      sleep(3)
+
+      # Should show multiple transactions with checkboxes
+      transaction_cards = all('.transaction-card')
+      expect(transaction_cards.count).to be >= 3
+
+      transaction_cards.each do |card|
+        within(card) do
+          expect(page).to have_css('.transaction-checkbox')
+        end
+      end
+    end
+
+    it 'shows bulk actions when transactions are present', js: true do
+      visit '/review'
+      sleep(3)
+
+      expect(page).to have_css('.bulk-actions')
+      expect(page).to have_css('.select-all-checkbox')
+      expect(page).to have_content('Select All (0 selected)')
+    end
+
+    it 'can select individual transactions', js: true do
+      visit '/review'
+      sleep(3)
+
+      # Select the first transaction
+      within(first('.transaction-card')) do
+        find('.transaction-checkbox').click
+      end
+
+      expect(page).to have_content('Select All (1 selected)')
+      expect(page).to have_css('.bulk-category-assign')
+    end
+
+    it 'can select all transactions', js: true do
+      visit '/review'
+      sleep(3)
+
+      # Click select all
+      find('.select-all-checkbox').click
+      sleep(1)
+
+      # Should show all transactions selected
+      transaction_count = all('.transaction-card').count
+      expect(page).to have_content("Select All (#{transaction_count} selected)")
+      expect(page).to have_css('.bulk-category-assign')
+
+      # All individual checkboxes should be checked
+      all('.transaction-checkbox').each do |checkbox|
+        expect(checkbox).to be_checked
+      end
+    end
+
+    it 'can bulk assign category to selected transactions', js: true do
+      visit '/review'
+      sleep(3)
+
+      # Select specific transactions by their description
+      suspicious_transaction = find('.transaction-card', text: 'Suspicious large purchase')
+      second_transaction = find('.transaction-card', text: 'Second flagged transaction')
+      
+      within(suspicious_transaction) do
+        find('.transaction-checkbox').click
+      end
+      
+      within(second_transaction) do
+        find('.transaction-checkbox').click
+      end
+
+      expect(page).to have_content('Select All (2 selected)')
+      
+      # Select a category from the dropdown
+      within('.bulk-category-assign') do
+        expect(page).to have_content('Assign Category to Selected:')
+        accept_alert do
+          select 'Food & Dining', from: 'bulk-category-select'
+        end
+      end
+      
+      sleep(3)
+
+      # Should show success message and clear selection
+      expect(page).to have_content('Select All (0 selected)')
+      
+      # Verify the selected transactions now show Food & Dining category
+      suspicious_card_text = find('.transaction-card', text: 'Suspicious large purchase').text
+      second_card_text = find('.transaction-card', text: 'Second flagged transaction').text
+      
+      expect(suspicious_card_text).to include('Food & Dining')
+      expect(second_card_text).to include('Food & Dining')
+    end
+
+    it 'shows error when no transactions are selected for bulk assignment', js: true do
+      visit '/review'
+      sleep(3)
+
+      # Try to use bulk assignment without selecting transactions
+      # The bulk category dropdown should not be visible
+      expect(page).not_to have_css('.bulk-category-assign')
+    end
+
+    it 'deselects all when bulk operation completes', js: true do
+      visit '/review'
+      sleep(3)
+
+      # Select all transactions
+      find('.select-all-checkbox').click
+      sleep(1)
+
+      transaction_count = all('.transaction-card').count
+      expect(page).to have_content("Select All (#{transaction_count} selected)")
+
+      # Perform bulk category assignment
+      within('.bulk-category-assign') do
+        accept_alert do
+          select 'Transportation', from: 'bulk-category-select'
+        end
+      end
+      
+      sleep(3)
+
+      # Selection should be cleared
+      expect(page).to have_content('Select All (0 selected)')
+      expect(page).not_to have_css('.bulk-category-assign')
+    end
+  end
 end
