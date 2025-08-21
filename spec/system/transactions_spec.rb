@@ -17,7 +17,7 @@ RSpec.describe 'Transaction Management', type: :system do
 
     it 'displays transactions in the Recent Transactions section', js: true do
       expect(page).to have_content('Recent Transactions')
-      
+
       # Find the transactions panel
       transactions_panel = page.all('.panel').find { |panel| panel.has_content?('Recent Transactions') }
       within(transactions_panel) do
@@ -45,10 +45,10 @@ RSpec.describe 'Transaction Management', type: :system do
     it 'shows anomaly indicators for flagged transactions', js: true do
       # Create an anomaly for the transaction
       create(:anomaly_detection, transaction_record: transaction)
-      
+
       visit root_path
       sleep(2)
-      
+
       transactions_panel = page.all('.panel').find { |panel| panel.has_content?('Recent Transactions') }
       within(transactions_panel) do
         expect(page).to have_content('⚠️')
@@ -61,7 +61,7 @@ RSpec.describe 'Transaction Management', type: :system do
     it 'provides link to view all transactions via API', js: true do
       visit root_path
       sleep(2)
-      
+
       expect(page).to have_link('View All Transactions', href: '/api/v1/transactions')
     end
   end

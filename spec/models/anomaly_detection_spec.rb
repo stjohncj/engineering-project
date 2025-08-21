@@ -88,9 +88,9 @@ RSpec.describe AnomalyDetection, type: :model do
   describe '#resolve!' do
     it 'marks anomaly as resolved' do
       anomaly = create(:anomaly_detection, resolved: false)
-      
+
       anomaly.resolve!
-      
+
       expect(anomaly.reload.resolved).to be true
       expect(anomaly.resolved_at).to be_within(1.second).of(Time.current)
     end
@@ -98,9 +98,9 @@ RSpec.describe AnomalyDetection, type: :model do
     it 'does not change already resolved anomaly' do
       original_time = 1.hour.ago
       anomaly = create(:anomaly_detection, :resolved, resolved_at: original_time)
-      
+
       anomaly.resolve!
-      
+
       expect(anomaly.reload.resolved_at).to be_within(1.second).of(original_time)
     end
   end
@@ -110,7 +110,7 @@ RSpec.describe AnomalyDetection, type: :model do
       unusual_amount = create(:anomaly_detection, anomaly_type: 'unusual_amount')
       potential_duplicate = create(:anomaly_detection, :potential_duplicate)
       incomplete_data = create(:anomaly_detection, :incomplete_data)
-      
+
       expect(unusual_amount.anomaly_type).to eq('unusual_amount')
       expect(potential_duplicate.anomaly_type).to eq('potential_duplicate')
       expect(incomplete_data.anomaly_type).to eq('incomplete_data')
@@ -119,14 +119,14 @@ RSpec.describe AnomalyDetection, type: :model do
 
   describe 'metadata handling' do
     it 'properly stores and retrieves JSON metadata' do
-      metadata = { 
-        "expected_range" => "10-100", 
+      metadata = {
+        "expected_range" => "10-100",
         "actual_amount" => "500",
-        "confidence_score" => 0.85 
+        "confidence_score" => 0.85
       }
-      
+
       anomaly = create(:anomaly_detection, metadata: metadata)
-      
+
       expect(anomaly.reload.metadata).to eq(metadata)
     end
 

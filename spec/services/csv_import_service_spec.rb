@@ -14,7 +14,7 @@ RSpec.describe CsvImportService do
   end
 
   let(:csv_file) do
-    file = Tempfile.new(['test', '.csv'])
+    file = Tempfile.new([ 'test', '.csv' ])
     file.write(valid_csv_content)
     file.rewind
     file
@@ -35,7 +35,7 @@ RSpec.describe CsvImportService do
     context 'with valid CSV data' do
       it 'imports all valid transactions using batch processing' do
         result = service.import
-        
+
         expect(result[:imported]).to eq(4)
         expect(result[:failed]).to eq(0)
         expect(result[:errors]).to be_empty
@@ -44,7 +44,7 @@ RSpec.describe CsvImportService do
 
       it 'creates transactions with correct attributes' do
         service.import
-        
+
         transaction = Transaction.find_by(description: 'Grocery Store Purchase')
         expect(transaction).to be_present
         expect(transaction.amount).to eq(100.50)
@@ -55,10 +55,10 @@ RSpec.describe CsvImportService do
 
       it 'creates or finds categories during processing' do
         expect { service.import }.to change(Category, :count).by(4)
-        
+
         groceries = Category.find_by(name: 'Groceries')
         expect(groceries).to be_present
-        
+
         transaction = Transaction.find_by(description: 'Grocery Store Purchase')
         expect(transaction.category).to eq(groceries)
       end
@@ -66,15 +66,15 @@ RSpec.describe CsvImportService do
       it 'processes transactions in batches' do
         # Mock the batch size to be smaller for testing
         stub_const('CsvImportService::BATCH_SIZE', 2)
-        
+
         expect(service).to receive(:process_batch).at_least(2).times.and_call_original
-        
+
         service.import
       end
 
       it 'uses bulk insert for better performance' do
         expect(Transaction).to receive(:insert_all).at_least(:once).and_call_original
-        
+
         service.import
       end
 
@@ -105,7 +105,7 @@ RSpec.describe CsvImportService do
       end
 
       let(:invalid_csv_file) do
-        file = Tempfile.new(['invalid', '.csv'])
+        file = Tempfile.new([ 'invalid', '.csv' ])
         file.write(invalid_csv_content)
         file.rewind
         file
@@ -117,7 +117,7 @@ RSpec.describe CsvImportService do
 
       it 'handles parsing errors gracefully' do
         result = invalid_service.import
-        
+
         expect(result[:imported]).to eq(0)
         expect(result[:failed]).to eq(3)
         expect(result[:errors]).to be_an(Array)
@@ -132,7 +132,7 @@ RSpec.describe CsvImportService do
           200.00,Another Valid,2025-08-21,Test
         CSV
 
-        file = Tempfile.new(['mixed', '.csv'])
+        file = Tempfile.new([ 'mixed', '.csv' ])
         file.write(mixed_csv)
         file.rewind
         mixed_service = described_class.new(file)
@@ -156,7 +156,7 @@ RSpec.describe CsvImportService do
 
       it 'detects and skips duplicates based on hash' do
         result = service.import
-        
+
         # Should skip the duplicate grocery transaction
         expect(result[:imported]).to eq(3)
         expect(result[:failed]).to eq(1)
@@ -166,13 +166,13 @@ RSpec.describe CsvImportService do
       it 'generates consistent duplicate hashes' do
         # Test that the same transaction data generates the same hash
         service_instance = service
-        
+
         data1 = { amount: 100.50, transaction_date: Date.parse('2025-08-19'), description: 'Test' }
         data2 = { amount: 100.50, transaction_date: Date.parse('2025-08-19'), description: 'Test' }
-        
+
         hash1 = service_instance.send(:generate_duplicate_hash, data1)
         hash2 = service_instance.send(:generate_duplicate_hash, data2)
-        
+
         expect(hash1).to eq(hash2)
       end
     end
@@ -185,7 +185,7 @@ RSpec.describe CsvImportService do
           large_csv += "#{100 + i},Transaction #{i},2025-08-#{19 + (i % 10)},Category#{i % 5}\n"
         end
 
-        large_file = Tempfile.new(['large', '.csv'])
+        large_file = Tempfile.new([ 'large', '.csv' ])
         large_file.write(large_csv)
         large_file.rewind
         large_service = described_class.new(large_file)
@@ -233,7 +233,7 @@ RSpec.describe CsvImportService do
           large_csv += "#{100 + i},Transaction #{i},2025-08-19,Test\n"
         end
 
-        large_file = Tempfile.new(['batch_test', '.csv'])
+        large_file = Tempfile.new([ 'batch_test', '.csv' ])
         large_file.write(large_csv)
         large_file.rewind
         large_service = described_class.new(large_file)
@@ -302,7 +302,7 @@ RSpec.describe CsvImportService do
 
       it 'finds existing categories' do
         existing_category = create(:category, name: 'Existing')
-        
+
         result = service_instance.send(:find_or_create_category, 'Existing')
         expect(result).to eq(existing_category)
       end

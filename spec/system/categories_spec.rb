@@ -31,10 +31,10 @@ RSpec.describe 'Category Management', type: :system do
 
     it 'displays uncategorized label for transactions without category', js: true do
       create(:transaction, category: nil, description: 'Uncategorized Transaction')
-      
+
       visit root_path
       sleep(2)
-      
+
       transactions_panel = page.all('.panel').find { |panel| panel.has_content?('Recent Transactions') }
       within(transactions_panel) do
         expect(page).to have_content('Uncategorized')
@@ -46,7 +46,7 @@ RSpec.describe 'Category Management', type: :system do
     it 'provides link to view all categories via API', js: true do
       visit root_path
       sleep(2)
-      
+
       expect(page).to have_link('View Categories', href: '/api/v1/categories')
     end
   end

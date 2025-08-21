@@ -211,7 +211,7 @@ RSpec.describe QueryCounter, type: :controller do
 
     it 'truncates long SQL queries' do
       long_sql = 'SELECT * FROM transactions WHERE ' + 'description LIKE "%test%" AND ' * 20 + 'amount > 0'
-      
+
       Thread.current[:ar_query_log] = [
         {
           sql: long_sql,

@@ -46,7 +46,7 @@ RSpec.describe Api::V1::TransactionsController, type: :controller do
 
     it 'handles unpermitted parameters gracefully' do
       # This test catches ActionController::UnfilteredParameters errors
-      get :index, params: { 
+      get :index, params: {
         malicious_param: 'hack_attempt',
         another_bad_param: { nested: 'data' },
         valid_param: 5
@@ -59,8 +59,8 @@ RSpec.describe Api::V1::TransactionsController, type: :controller do
 
     it 'does not crash with complex parameter combinations' do
       # Test the exact scenario that caused our bug
-      get :index, params: { 
-        page: 1, 
+      get :index, params: {
+        page: 1,
         per_page: 10,
         category_id: 1,
         status: 'pending',
@@ -112,13 +112,13 @@ RSpec.describe Api::V1::TransactionsController, type: :controller do
       it 'filters by date range' do
         old_transaction = create(:transaction, transaction_date: 1.month.ago)
         recent_transaction = create(:transaction, transaction_date: Date.current)
-        
-        get :index, params: { 
-          start_date: 1.week.ago.to_date, 
-          end_date: Date.current 
+
+        get :index, params: {
+          start_date: 1.week.ago.to_date,
+          end_date: Date.current
         }
         json = JSON.parse(response.body)
-        
+
         dates = json['transactions'].map { |t| Date.parse(t['transaction_date']) }
         expect(dates.all? { |date| date >= 1.week.ago.to_date }).to be true
       end
@@ -156,7 +156,7 @@ RSpec.describe Api::V1::TransactionsController, type: :controller do
         total_transactions = Transaction.count
         per_page = 7
         expected_pages = (total_transactions.to_f / per_page).ceil
-        
+
         get :index, params: { per_page: per_page }
         json = JSON.parse(response.body)
         expect(json['pagination']['total_pages']).to eq(expected_pages)
@@ -166,7 +166,7 @@ RSpec.describe Api::V1::TransactionsController, type: :controller do
         # Create exact multiple of page size to test boundary conditions
         Transaction.delete_all
         create_list(:transaction, 20) # Exactly 4 pages of 5
-        
+
         get :index, params: { per_page: 5 }
         json = JSON.parse(response.body)
         expect(json['pagination']['total_count']).to eq(20)
@@ -178,7 +178,7 @@ RSpec.describe Api::V1::TransactionsController, type: :controller do
         total_count = Transaction.count
         per_page = 10
         last_page = (total_count.to_f / per_page).ceil
-        
+
         get :index, params: { page: last_page, per_page: per_page }
         json = JSON.parse(response.body)
         expect(json['pagination']['current_page']).to eq(last_page)
@@ -263,10 +263,10 @@ RSpec.describe Api::V1::TransactionsController, type: :controller do
 
     context 'with category assignment' do
       let(:category) { create(:category, name: 'Test Category') }
-      
+
       it 'assigns category by name' do
-        post :create, params: { 
-          transaction: valid_attributes.merge(category_name: 'Test Category') 
+        post :create, params: {
+          transaction: valid_attributes.merge(category_name: 'Test Category')
         }
         json = JSON.parse(response.body)
         expect(json['transaction']['category']).to eq('Test Category')
@@ -325,7 +325,7 @@ RSpec.describe Api::V1::TransactionsController, type: :controller do
 
   describe 'POST #import_csv' do
     let(:csv_file) do
-      file = Tempfile.new(['test', '.csv'])
+      file = Tempfile.new([ 'test', '.csv' ])
       file.write("amount,description,date,category\n")
       file.write("100.50,Test Transaction,2025-08-19,Food\n")
       file.rewind
@@ -431,30 +431,30 @@ RSpec.describe Api::V1::TransactionsController, type: :controller do
     let(:transaction_ids) { transactions.map(&:id) }
 
     it 'updates multiple transactions' do
-      patch :bulk_update, params: { 
-        transaction_ids: transaction_ids, 
-        updates: { status: 'approved' } 
+      patch :bulk_update, params: {
+        transaction_ids: transaction_ids,
+        updates: { status: 'approved' }
       }
-      
+
       transactions.each(&:reload)
       expect(transactions.all?(&:approved?)).to be true
     end
 
     it 'returns success response' do
-      patch :bulk_update, params: { 
-        transaction_ids: transaction_ids, 
-        updates: { status: 'approved' } 
+      patch :bulk_update, params: {
+        transaction_ids: transaction_ids,
+        updates: { status: 'approved' }
       }
-      
+
       expect(response).to be_successful
     end
 
     it 'returns updated transactions and message' do
-      patch :bulk_update, params: { 
-        transaction_ids: transaction_ids, 
-        updates: { status: 'approved' } 
+      patch :bulk_update, params: {
+        transaction_ids: transaction_ids,
+        updates: { status: 'approved' }
       }
-      
+
       json = JSON.parse(response.body)
       expect(json['message']).to include('3 transactions updated successfully')
       expect(json['transactions']).to be_an(Array)
@@ -463,11 +463,11 @@ RSpec.describe Api::V1::TransactionsController, type: :controller do
 
     context 'with non-existent IDs' do
       it 'ignores non-existent transactions' do
-        patch :bulk_update, params: { 
-          transaction_ids: [999999, transaction_ids.first], 
-          updates: { status: 'approved' } 
+        patch :bulk_update, params: {
+          transaction_ids: [ 999999, transaction_ids.first ],
+          updates: { status: 'approved' }
         }
-        
+
         json = JSON.parse(response.body)
         expect(json['message']).to include('1 transactions updated successfully')
       end
@@ -512,7 +512,7 @@ RSpec.describe Api::V1::TransactionsController, type: :controller do
     it 'handles pagination correctly' do
       # Create more transactions with anomalies
       5.times { create(:anomaly_detection, transaction_record: create(:transaction)) }
-      
+
       get :anomalies, params: { per_page: 2 }
       json = JSON.parse(response.body)
       expect(json['transactions'].length).to eq(2)
@@ -598,7 +598,7 @@ RSpec.describe Api::V1::TransactionsController, type: :controller do
       it 'returns all transactions when show_all=true' do
         get :anomalies, params: { show_all: 'true' }
         json = JSON.parse(response.body)
-        
+
         # Should return both transactions with and without anomalies
         expect(json['transactions'].length).to be >= 2
         transaction_ids = json['transactions'].map { |t| t['id'] }
@@ -610,10 +610,10 @@ RSpec.describe Api::V1::TransactionsController, type: :controller do
         # Create a pending transaction and a flagged transaction
         pending_transaction = create(:transaction, status: 'pending')
         flagged_transaction = create(:transaction, status: 'flagged')
-        
+
         get :anomalies, params: { show_all: 'true', status: 'pending' }
         json = JSON.parse(response.body)
-        
+
         # Should only return pending transactions
         expect(json['transactions'].all? { |t| t['status'] == 'pending' }).to be true
       end
@@ -621,7 +621,7 @@ RSpec.describe Api::V1::TransactionsController, type: :controller do
       it 'defaults to transactions with anomalies when show_all is not specified' do
         get :anomalies
         json = JSON.parse(response.body)
-        
+
         # Should only return transactions with anomalies (default behavior)
         expect(json['transactions'].length).to eq(1)
         expect(json['transactions'].first['id']).to eq(transaction_with_anomaly.id)

@@ -6,7 +6,7 @@ RSpec.describe Api::V1::PerformanceController, type: :controller do
       get :health
 
       expect(response).to have_http_status(:ok)
-      
+
       json_response = JSON.parse(response.body)
       expect(json_response['status']).to eq('healthy')
       expect(json_response['timestamp']).to be_present
@@ -17,7 +17,7 @@ RSpec.describe Api::V1::PerformanceController, type: :controller do
     it 'includes current timestamp in ISO format' do
       freeze_time = Time.current
       allow(Time).to receive(:current).and_return(freeze_time)
-      
+
       get :health
 
       json_response = JSON.parse(response.body)
@@ -45,7 +45,7 @@ RSpec.describe Api::V1::PerformanceController, type: :controller do
       get :metrics
 
       expect(response).to have_http_status(:ok)
-      
+
       json_response = JSON.parse(response.body)
       expect(json_response['metrics']).to eq(mock_metrics.as_json)
       expect(json_response['timestamp']).to be_present
@@ -60,7 +60,7 @@ RSpec.describe Api::V1::PerformanceController, type: :controller do
 
   describe 'GET #database_stats' do
     let(:mock_connection_pool) do
-      double('connection_pool', 
+      double('connection_pool',
         size: 5,
         checked_out: double(size: 2),
         available: double(size: 3)
@@ -95,7 +95,7 @@ RSpec.describe Api::V1::PerformanceController, type: :controller do
       get :database_stats
 
       expect(response).to have_http_status(:ok)
-      
+
       json_response = JSON.parse(response.body)
       expect(json_response['database']).to eq(mock_db_stats.as_json)
       expect(json_response['timestamp']).to be_present
@@ -127,7 +127,7 @@ RSpec.describe Api::V1::PerformanceController, type: :controller do
         get :cache_stats
 
         expect(response).to have_http_status(:ok)
-        
+
         json_response = JSON.parse(response.body)
         expect(json_response['cache']).to eq(mock_cache_stats.as_json)
         expect(json_response['timestamp']).to be_present
@@ -143,7 +143,7 @@ RSpec.describe Api::V1::PerformanceController, type: :controller do
         get :cache_stats
 
         expect(response).to have_http_status(:ok)
-        
+
         json_response = JSON.parse(response.body)
         expect(json_response['cache']['message']).to eq('Cache stats not available for this cache store')
         expect(json_response['timestamp']).to be_present
@@ -202,7 +202,7 @@ RSpec.describe Api::V1::PerformanceController, type: :controller do
         expect(stats[:connection_pool][:size]).to eq(5)
         expect(stats[:connection_pool][:checked_out]).to eq(2)
         expect(stats[:connection_pool][:available]).to eq(3)
-        
+
         expect(stats[:table_counts][:transactions]).to eq(1000)
         expect(stats[:table_counts][:categories]).to eq(10)
         expect(stats[:table_counts][:rules]).to eq(5)

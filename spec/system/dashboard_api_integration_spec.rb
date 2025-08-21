@@ -20,13 +20,13 @@ RSpec.describe 'Dashboard API Integration', type: :system do
       it 'displays correct transaction count', js: true do
         visit root_path
         sleep(3) # Wait for API calls to complete
-        
+
         # Should show the correct number of transactions
         expect(page).to have_content('TOTAL TRANSACTIONS')
-        
+
         # Should NOT show "No transactions found"
         expect(page).not_to have_content('No transactions found')
-        
+
         # Check that transactions are actually displayed
         expect(page).to have_content('Coffee shop')
         expect(page).to have_content('Restaurant dinner')
@@ -35,13 +35,13 @@ RSpec.describe 'Dashboard API Integration', type: :system do
       it 'displays transaction details correctly', js: true do
         visit root_path
         sleep(3)
-        
+
         # Check individual transaction details
         within('.transaction-list') do
           expect(page).to have_content('Coffee shop')
           expect(page).to have_content('$5.50')
           expect(page).to have_content('Food & Dining')
-          
+
           expect(page).to have_content('Restaurant dinner')
           expect(page).to have_content('$45.00')
         end
@@ -50,7 +50,7 @@ RSpec.describe 'Dashboard API Integration', type: :system do
       it 'displays anomaly count correctly', js: true do
         visit root_path
         sleep(3)
-        
+
         # Should show correct anomaly count
         expect(page).to have_content('UNRESOLVED ANOMALIES')
         expect(page).to have_content('1') # We created 1 anomaly
@@ -59,10 +59,10 @@ RSpec.describe 'Dashboard API Integration', type: :system do
       it 'handles API pagination correctly', js: true do
         # Create more transactions to test pagination
         create_list(:transaction, 10, category: category)
-        
+
         visit root_path
         sleep(3)
-        
+
         # Dashboard should show recent transactions (limited by per_page=5)
         # But stats should show total count correctly
         expect(page).to have_content('TOTAL TRANSACTIONS')
@@ -75,11 +75,11 @@ RSpec.describe 'Dashboard API Integration', type: :system do
       it 'provides working API links', js: true do
         visit root_path
         sleep(2)
-        
+
         # Test "View All Transactions" link
         transactions_link = find('a[href="/api/v1/transactions"]')
         expect(transactions_link).to be_present
-        
+
         # Test that the link would work (we can't easily test opening in new tab)
         # but we can verify the href is correct
         expect(transactions_link[:href]).to eq('/api/v1/transactions')
@@ -98,13 +98,13 @@ RSpec.describe 'Dashboard API Integration', type: :system do
             return window.originalFetch.apply(this, arguments);
           };
         """)
-        
+
         visit root_path
         sleep(3)
-        
+
         # Should show loading state or error message, not crash
         expect(page).to have_content('Loading transactions').or have_content('No transactions found')
-        
+
         # Restore fetch for cleanup
         page.execute_script('window.fetch = window.originalFetch;')
       end
@@ -123,13 +123,13 @@ RSpec.describe 'Dashboard API Integration', type: :system do
             return window.originalFetch.apply(this, arguments);
           };
         """)
-        
+
         visit root_path
         sleep(3)
-        
+
         # Should handle gracefully, show empty state
         expect(page).to have_content('No transactions found')
-        
+
         # Restore fetch
         page.execute_script('window.fetch = window.originalFetch;')
       end
@@ -140,11 +140,11 @@ RSpec.describe 'Dashboard API Integration', type: :system do
     it 'displays appropriate empty states', js: true do
       visit root_path
       sleep(3)
-      
+
       # Should show zero counts
       expect(page).to have_content('TOTAL TRANSACTIONS')
       expect(page).to have_content('0').or have_content('No transactions found')
-      
+
       # Should show empty state messages
       expect(page).to have_content('No transactions found').or have_content('No unresolved anomalies')
     end
@@ -154,18 +154,18 @@ RSpec.describe 'Dashboard API Integration', type: :system do
     it 'matches API response structure with dashboard expectations', js: true do
       visit root_path
       sleep(2)
-      
+
       # Capture the actual API response that the dashboard receives
       api_response = page.evaluate_script("""
         fetch('/api/v1/transactions?per_page=5')
           .then(r => r.json())
           .then(data => data)
       """)
-      
+
       # Verify the response structure matches what the dashboard expects
       expect(api_response).to include('transactions', 'pagination')
       expect(api_response['pagination']).to include('total_count', 'current_page', 'per_page')
-      
+
       # Ensure total_count is not zero when transactions exist
       if Transaction.count > 0
         expect(api_response['pagination']['total_count']).to be > 0
@@ -177,14 +177,14 @@ RSpec.describe 'Dashboard API Integration', type: :system do
     it 'verifies anomaly detection API consistency', js: true do
       visit root_path
       sleep(2)
-      
+
       # Test the anomaly detection endpoint
       anomaly_response = page.evaluate_script("""
         fetch('/api/v1/anomaly_detections?unresolved=true')
           .then(r => r.json())
           .then(data => data)
       """)
-      
+
       expect(anomaly_response).to include('anomaly_detections', 'pagination')
       expect(anomaly_response['pagination']['total_count']).to be >= 0
     end

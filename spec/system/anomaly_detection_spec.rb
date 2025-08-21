@@ -8,7 +8,7 @@ RSpec.describe 'Anomaly Detection', type: :system do
   let!(:category) { create(:category, name: 'Food & Dining') }
   let!(:normal_transaction) { create(:transaction, category: category, amount: 25.00) }
   let!(:anomaly_transaction) { create(:transaction, category: category, amount: 500.00) }
-  
+
   let!(:duplicate_anomaly) { create(:anomaly_detection,
     transaction_record: anomaly_transaction,
     anomaly_type: 'duplicate_transaction',
@@ -16,7 +16,7 @@ RSpec.describe 'Anomaly Detection', type: :system do
     description: 'Potential duplicate transaction detected',
     resolved: false
   )}
-  
+
   let!(:high_amount_anomaly) { create(:anomaly_detection,
     transaction_record: anomaly_transaction,
     anomaly_type: 'unusually_high_amount',
@@ -24,7 +24,7 @@ RSpec.describe 'Anomaly Detection', type: :system do
     description: 'Transaction amount significantly higher than average',
     resolved: false
   )}
-  
+
   let!(:resolved_anomaly) { create(:anomaly_detection,
     transaction_record: normal_transaction,
     anomaly_type: 'missing_category',
@@ -59,7 +59,7 @@ RSpec.describe 'Anomaly Detection', type: :system do
         # Check for anomaly types (converted to uppercase)
         expect(page).to have_content('DUPLICATE TRANSACTION')
         expect(page).to have_content('UNUSUALLY HIGH AMOUNT')
-        
+
         # Check for descriptions
         expect(page).to have_content(duplicate_anomaly.description)
         expect(page).to have_content(high_amount_anomaly.description)
@@ -100,7 +100,7 @@ RSpec.describe 'Anomaly Detection', type: :system do
     it 'provides link to view unresolved anomalies via API', js: true do
       visit root_path
       sleep(2)
-      
+
       expect(page).to have_link('View Unresolved Anomalies', href: '/api/v1/anomaly_detections?unresolved=true')
     end
   end
@@ -109,7 +109,7 @@ RSpec.describe 'Anomaly Detection', type: :system do
     it 'shows anomaly count on affected transactions', js: true do
       visit root_path
       sleep(2)
-      
+
       transactions_panel = page.all('.panel').find { |panel| panel.has_content?('Recent Transactions') }
       within(transactions_panel) do
         # Should show anomaly indicator for transaction with anomalies

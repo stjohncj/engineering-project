@@ -4,7 +4,7 @@ RSpec.describe 'Dashboard', type: :system do
   before do
     driven_by(:selenium_chrome_headless)
   end
-  
+
   def formatCurrency(amount)
     "$#{'%.2f' % amount}"
   end
@@ -42,7 +42,7 @@ RSpec.describe 'Dashboard', type: :system do
     it 'shows transaction details', js: true do
       # Wait for React components to load
       sleep(2)
-      
+
       # Find the transactions panel specifically
       transactions_panel = page.all('.panel').find { |panel| panel.has_content?('Recent Transactions') }
       within(transactions_panel) do
@@ -59,7 +59,7 @@ RSpec.describe 'Dashboard', type: :system do
     it 'displays anomalies section', js: true do
       # Wait for React components to load
       sleep(2)
-      
+
       expect(page).to have_content('Active Anomalies')
       # Find the anomalies panel specifically
       anomalies_panel = page.all('.panel').find { |panel| panel.has_content?('Active Anomalies') }
@@ -72,7 +72,7 @@ RSpec.describe 'Dashboard', type: :system do
     it 'has working navigation links', js: true do
       # Wait for React components to load
       sleep(2)
-      
+
       expect(page).to have_link('View All Transactions')
       expect(page).to have_link('View Categories')
       expect(page).to have_link('View Active Rules')
@@ -117,7 +117,7 @@ RSpec.describe 'Dashboard', type: :system do
     it 'displays properly on mobile viewport' do
       page.driver.browser.manage.window.resize_to(375, 667) # iPhone size
       visit root_path
-      
+
       expect(page).to have_content('📊 Bookkeeping System')
       expect(page).to have_content('TOTAL TRANSACTIONS')
     end
@@ -125,7 +125,7 @@ RSpec.describe 'Dashboard', type: :system do
     it 'displays properly on tablet viewport' do
       page.driver.browser.manage.window.resize_to(768, 1024) # iPad size
       visit root_path
-      
+
       expect(page).to have_content('📊 Bookkeeping System')
       expect(page).to have_content('Recent Transactions')
     end

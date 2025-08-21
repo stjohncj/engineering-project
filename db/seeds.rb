@@ -91,12 +91,12 @@ sample_transactions.each do |tx_data|
     transaction_date: tx_data[:transaction_date],
     status: :pending
   )
-  
+
   # Apply rules to the transaction
   Rule.active.each do |rule|
     rule.apply_to!(transaction)
   end
-  
+
   # Run anomaly detection
   AnomalyDetectionService.new(transaction).detect_and_flag
 end

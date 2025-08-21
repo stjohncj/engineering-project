@@ -6,7 +6,7 @@ RSpec.describe BulkRuleApplicationJob, type: :job do
   let(:category) { create(:category) }
   let!(:transactions) { create_list(:transaction, 3, category: category) }
   let(:transaction_ids) { transactions.map(&:id) }
-  
+
   let!(:active_rule) { create(:rule, active: true) }
   let!(:inactive_rule) { create(:rule, active: false) }
 
@@ -50,7 +50,7 @@ RSpec.describe BulkRuleApplicationJob, type: :job do
     end
 
     context 'when specific rule IDs are provided' do
-      let(:rule_ids) { [active_rule.id] }
+      let(:rule_ids) { [ active_rule.id ] }
 
       it 'only applies the specified rules' do
         expect(active_rule).to receive(:apply_to!).exactly(3).times
@@ -81,7 +81,7 @@ RSpec.describe BulkRuleApplicationJob, type: :job do
 
       it 'logs the error and re-raises it' do
         expect(Rails.logger).to receive(:error).with("BulkRuleApplicationJob failed: Database connection failed")
-        
+
         expect { described_class.perform_now(transaction_ids) }.to raise_error(StandardError, "Database connection failed")
       end
     end
@@ -105,8 +105,8 @@ RSpec.describe BulkRuleApplicationJob, type: :job do
     end
 
     it 'enqueues the job with rule IDs' do
-      rule_ids = [active_rule.id]
-      
+      rule_ids = [ active_rule.id ]
+
       expect {
         described_class.perform_later(transaction_ids, rule_ids)
       }.to enqueue_job(described_class).with(transaction_ids, rule_ids).on_queue('default')

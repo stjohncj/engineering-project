@@ -1,56 +1,56 @@
 class Api::V1::PerformanceController < ApplicationController
   # Performance and health check endpoints
-  
+
   def health
     # Basic health check for load balancers
     render json: {
-      status: 'healthy',
+      status: "healthy",
       timestamp: Time.current.iso8601,
       version: Rails.application.class.module_parent_name,
       environment: Rails.env
     }
   end
-  
+
   def metrics
     # Return system performance metrics
-    metrics = Rails.cache.fetch('system_metrics', expires_in: 1.minute) do
+    metrics = Rails.cache.fetch("system_metrics", expires_in: 1.minute) do
       calculate_system_metrics
     end
-    
+
     render json: {
       metrics: metrics,
       timestamp: Time.current.iso8601
     }
   end
-  
+
   def database_stats
     # Database performance statistics
-    stats = Rails.cache.fetch('database_stats', expires_in: 5.minutes) do
+    stats = Rails.cache.fetch("database_stats", expires_in: 5.minutes) do
       calculate_database_stats
     end
-    
+
     render json: {
       database: stats,
       timestamp: Time.current.iso8601
     }
   end
-  
+
   def cache_stats
     # Cache performance statistics
     if Rails.cache.respond_to?(:stats)
       cache_stats = Rails.cache.stats
     else
-      cache_stats = { message: 'Cache stats not available for this cache store' }
+      cache_stats = { message: "Cache stats not available for this cache store" }
     end
-    
+
     render json: {
       cache: cache_stats,
       timestamp: Time.current.iso8601
     }
   end
-  
+
   private
-  
+
   def calculate_system_metrics
     {
       memory_usage: get_memory_usage,
@@ -63,7 +63,7 @@ class Api::V1::PerformanceController < ApplicationController
   rescue => e
     { error: "Unable to collect system metrics: #{e.message}" }
   end
-  
+
   def calculate_database_stats
     {
       connection_pool: {
@@ -83,7 +83,7 @@ class Api::V1::PerformanceController < ApplicationController
   rescue => e
     { error: "Unable to collect database stats: #{e.message}" }
   end
-  
+
   def get_memory_usage
     if defined?(GC)
       heap_size = GC.stat[:heap_live_slots] * GC::INTERNAL_CONSTANTS[:RVALUE_SIZE]
@@ -94,31 +94,31 @@ class Api::V1::PerformanceController < ApplicationController
   rescue
     0
   end
-  
+
   def get_table_sizes
     # PostgreSQL specific query to get table sizes
-    return {} unless ActiveRecord::Base.connection.adapter_name == 'PostgreSQL'
-    
+    return {} unless ActiveRecord::Base.connection.adapter_name == "PostgreSQL"
+
     query = <<-SQL
-      SELECT 
+      SELECT#{' '}
         schemaname,
         tablename,
         pg_size_pretty(pg_total_relation_size(schemaname||'.'||tablename)) as size,
         pg_total_relation_size(schemaname||'.'||tablename) as size_bytes
-      FROM pg_tables 
+      FROM pg_tables#{' '}
       WHERE schemaname = 'public'
-      ORDER BY pg_total_relation_size(schemaname||'.'||tablename) DESC 
+      ORDER BY pg_total_relation_size(schemaname||'.'||tablename) DESC#{' '}
       LIMIT 10
     SQL
-    
+
     ActiveRecord::Base.connection.exec_query(query).to_a
   rescue => e
     { error: "Unable to get table sizes: #{e.message}" }
   end
-  
+
   def get_recent_slow_queries
     # This would need to be implemented based on your query logging setup
     # For now, return placeholder
-    { message: 'Slow query tracking not implemented' }
+    { message: "Slow query tracking not implemented" }
   end
 end

@@ -10,7 +10,7 @@ RSpec.describe CsvImportJob, type: :job do
       200.75,Test Transaction 2,2025-08-20,Transport
     CSV
   end
-  
+
   let(:temp_file_path) { Rails.root.join('tmp', 'test_import.csv') }
   let(:user_id) { 'test_user_123' }
   let(:import_options) { { run_anomaly_detection: true } }
@@ -27,7 +27,7 @@ RSpec.describe CsvImportJob, type: :job do
   before do
     # Create test CSV file
     File.write(temp_file_path, csv_content)
-    
+
     allow(Rails.logger).to receive(:info)
     allow(Rails.logger).to receive(:error)
     allow(CsvImportService).to receive(:new).and_return(csv_import_service)
@@ -65,7 +65,7 @@ RSpec.describe CsvImportJob, type: :job do
       it 'stores import results in cache' do
         cache_key_pattern = "csv_import_result_#{user_id}_"
         latest_key = "csv_import_latest_#{user_id}"
-        
+
         expect(Rails.cache).to receive(:write).with(
           a_string_starting_with(cache_key_pattern),
           import_result.merge(status: 'completed'),
@@ -84,12 +84,12 @@ RSpec.describe CsvImportJob, type: :job do
     context 'when run_anomaly_detection is enabled' do
       before do
         allow(Transaction).to receive(:where).with(import_batch_id: import_result[:batch_id]).and_return(
-          double(pluck: [1, 2, 3, 4, 5])
+          double(pluck: [ 1, 2, 3, 4, 5 ])
         )
       end
 
       it 'queues anomaly detection jobs for imported transactions' do
-        expect(BulkAnomalyDetectionJob).to receive(:perform_later).with([1, 2, 3, 4, 5])
+        expect(BulkAnomalyDetectionJob).to receive(:perform_later).with([ 1, 2, 3, 4, 5 ])
 
         described_class.perform_now(temp_file_path.to_s, user_id, import_options)
       end
@@ -134,7 +134,7 @@ RSpec.describe CsvImportJob, type: :job do
         error_result = {
           imported: 0,
           failed: 0,
-          errors: ["Import failed: #{error_message}"],
+          errors: [ "Import failed: #{error_message}" ],
           batch_id: nil,
           status: 'failed'
         }
@@ -187,7 +187,7 @@ RSpec.describe CsvImportJob, type: :job do
     describe '#store_import_results' do
       it 'stores results with correct cache keys and expiration' do
         result = { imported: 1, failed: 0 }
-        
+
         expect(Rails.cache).to receive(:write).with(
           a_string_starting_with("csv_import_result_#{user_id}_"),
           result.merge(status: 'completed'),

@@ -15,10 +15,10 @@ RSpec.describe Api::V1::DashboardController, type: :controller do
       get :statistics
 
       expect(response).to have_http_status(:ok)
-      
+
       json_response = JSON.parse(response.body)
       statistics = json_response['statistics']
-      
+
       expect(statistics['total_transactions']).to eq(3)
       expect(statistics['total_amount']).to eq(300.0)
       expect(statistics['active_rules']).to be_a(Integer)
@@ -31,7 +31,7 @@ RSpec.describe Api::V1::DashboardController, type: :controller do
     it 'caches statistics for 5 minutes' do
       # First call should hit the database
       expect(Rails.cache).to receive(:fetch).with("dashboard_statistics", expires_in: 5.minutes).and_call_original
-      
+
       get :statistics
 
       expect(response).to have_http_status(:ok)
@@ -42,7 +42,7 @@ RSpec.describe Api::V1::DashboardController, type: :controller do
 
       json_response = JSON.parse(response.body)
       statistics = json_response['statistics']
-      
+
       expect(statistics['monthly_trends']).to be_a(Hash)
     end
 
@@ -51,7 +51,7 @@ RSpec.describe Api::V1::DashboardController, type: :controller do
 
       json_response = JSON.parse(response.body)
       statistics = json_response['statistics']
-      
+
       expect(statistics['category_breakdown']).to be_an(Array)
       expect(statistics['category_breakdown'].first).to have_key('category')
       expect(statistics['category_breakdown'].first).to have_key('count')
@@ -64,10 +64,10 @@ RSpec.describe Api::V1::DashboardController, type: :controller do
       get :recent_transactions
 
       expect(response).to have_http_status(:ok)
-      
+
       json_response = JSON.parse(response.body)
       transactions_data = json_response['transactions']
-      
+
       expect(transactions_data).to be_an(Array)
       expect(transactions_data.length).to be <= 10
       expect(transactions_data.first).to have_key('id')
@@ -79,7 +79,7 @@ RSpec.describe Api::V1::DashboardController, type: :controller do
 
     it 'caches recent transactions for 1 minute' do
       expect(Rails.cache).to receive(:fetch).with("recent_transactions", expires_in: 1.minute).and_call_original
-      
+
       get :recent_transactions
 
       expect(response).to have_http_status(:ok)
@@ -94,7 +94,7 @@ RSpec.describe Api::V1::DashboardController, type: :controller do
 
       json_response = JSON.parse(response.body)
       transactions_data = json_response['transactions']
-      
+
       expect(transactions_data.first['id']).to eq(new_transaction.id)
     end
 
@@ -104,7 +104,7 @@ RSpec.describe Api::V1::DashboardController, type: :controller do
 
       json_response = JSON.parse(response.body)
       transactions_data = json_response['transactions']
-      
+
       transaction_with_anomaly = transactions_data.find { |t| t['id'] == transactions.first.id }
       expect(transaction_with_anomaly['anomaly_count']).to eq(1)
     end
@@ -118,10 +118,10 @@ RSpec.describe Api::V1::DashboardController, type: :controller do
       get :active_anomalies
 
       expect(response).to have_http_status(:ok)
-      
+
       json_response = JSON.parse(response.body)
       anomalies_data = json_response['anomalies']
-      
+
       expect(anomalies_data).to be_an(Array)
       expect(anomalies_data.length).to be <= 5
       expect(anomalies_data.first).to have_key('id')
@@ -135,7 +135,7 @@ RSpec.describe Api::V1::DashboardController, type: :controller do
 
     it 'caches active anomalies for 2 minutes' do
       expect(Rails.cache).to receive(:fetch).with("active_anomalies", expires_in: 2.minutes).and_call_original
-      
+
       get :active_anomalies
 
       expect(response).to have_http_status(:ok)
@@ -146,7 +146,7 @@ RSpec.describe Api::V1::DashboardController, type: :controller do
 
       json_response = JSON.parse(response.body)
       anomalies_data = json_response['anomalies']
-      
+
       # Should not include the resolved anomaly
       resolved_anomaly_ids = anomalies_data.map { |a| a['id'] }
       expect(resolved_anomaly_ids).not_to include(resolved_anomaly.id)
@@ -159,7 +159,7 @@ RSpec.describe Api::V1::DashboardController, type: :controller do
 
       json_response = JSON.parse(response.body)
       anomalies_data = json_response['anomalies']
-      
+
       # High severity anomaly should come first
       expect(anomalies_data.first['id']).to eq(high_severity_anomaly.id)
       expect(anomalies_data.first['severity']).to eq(5)
@@ -173,7 +173,7 @@ RSpec.describe Api::V1::DashboardController, type: :controller do
 
       json_response = JSON.parse(response.body)
       anomalies_data = json_response['anomalies']
-      
+
       expect(anomalies_data.length).to eq(5)
     end
   end
@@ -285,7 +285,7 @@ RSpec.describe Api::V1::DashboardController, type: :controller do
       # Second request should use cache
       expect(Rails.cache).not_to receive(:fetch)
       allow(Rails.cache).to receive(:fetch).and_call_original
-      
+
       get :statistics
       second_response = JSON.parse(response.body)
 

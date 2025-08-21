@@ -72,11 +72,11 @@ RSpec.describe PerformanceMonitoring, type: :controller do
 
         expect(Rails.logger).to receive(:info) do |message|
           expect(message).to include('PERFORMANCE:')
-          
+
           # Parse the JSON from the log message
           json_part = message.split('PERFORMANCE: ')[1]
           metrics = JSON.parse(json_part)
-          
+
           expected_metrics.each do |key, value_type|
             expect(metrics[key.to_s]).to be_a(value_type) if value_type.is_a?(Class)
           end
@@ -91,8 +91,8 @@ RSpec.describe PerformanceMonitoring, type: :controller do
           expect(message).not_to include('secret_token')
         end
 
-        get :fast_action, params: { 
-          monitor: 'true', 
+        get :fast_action, params: {
+          monitor: 'true',
           password: 'secret123',
           token: 'secret_token',
           normal_param: 'visible'

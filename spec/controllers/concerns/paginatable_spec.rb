@@ -31,10 +31,10 @@ RSpec.describe Paginatable, type: :controller do
     context 'with default pagination' do
       it 'paginates with default settings' do
         get :index
-        
+
         expect(response).to have_http_status(:ok)
         json = JSON.parse(response.body)
-        
+
         expect(json['transactions'].length).to eq(15) # All fit in default page size
         expect(json['pagination']['current_page']).to eq(1)
         expect(json['pagination']['per_page']).to eq(50) # DEFAULT_PER_PAGE
@@ -44,9 +44,9 @@ RSpec.describe Paginatable, type: :controller do
     context 'with custom page parameters' do
       it 'respects page parameter' do
         get :index, params: { page: 2, per_page: 5 }
-        
+
         json = JSON.parse(response.body)
-        
+
         expect(json['transactions'].length).to eq(5)
         expect(json['pagination']['current_page']).to eq(2)
         expect(json['pagination']['per_page']).to eq(5)
@@ -54,17 +54,17 @@ RSpec.describe Paginatable, type: :controller do
 
       it 'limits per_page to MAX_PER_PAGE' do
         get :index, params: { per_page: 200 }
-        
+
         json = JSON.parse(response.body)
-        
+
         expect(json['pagination']['per_page']).to eq(100) # MAX_PER_PAGE
       end
 
       it 'handles invalid page numbers gracefully' do
         get :index, params: { page: 0 }
-        
+
         json = JSON.parse(response.body)
-        
+
         expect(json['pagination']['current_page']).to eq(1) # Defaults to 1
       end
     end
@@ -76,9 +76,9 @@ RSpec.describe Paginatable, type: :controller do
 
       it 'properly paginates large datasets' do
         get :index, params: { page: 2, per_page: 50 }
-        
+
         json = JSON.parse(response.body)
-        
+
         expect(json['transactions'].length).to eq(50)
         expect(json['pagination']['current_page']).to eq(2)
         expect(json['pagination']['total_count']).to eq(140)
@@ -90,10 +90,10 @@ RSpec.describe Paginatable, type: :controller do
   describe '#pagination_meta' do
     it 'returns comprehensive pagination metadata' do
       get :show_with_meta, params: { page: 2, per_page: 5 }
-      
+
       json = JSON.parse(response.body)
       meta = json['meta']
-      
+
       expect(meta).to include(
         'current_page' => 2,
         'per_page' => 5,
@@ -106,20 +106,20 @@ RSpec.describe Paginatable, type: :controller do
 
     it 'handles first page correctly' do
       get :show_with_meta, params: { page: 1, per_page: 5 }
-      
+
       json = JSON.parse(response.body)
       meta = json['meta']
-      
+
       expect(meta['prev_page']).to be_nil
       expect(meta['next_page']).to eq(2)
     end
 
     it 'handles last page correctly' do
       get :show_with_meta, params: { page: 3, per_page: 5 }
-      
+
       json = JSON.parse(response.body)
       meta = json['meta']
-      
+
       expect(meta['next_page']).to be_nil
       expect(meta['prev_page']).to eq(2)
     end
@@ -129,12 +129,12 @@ RSpec.describe Paginatable, type: :controller do
     it 'caches total count for expensive queries' do
       controller_instance = controller
       collection = Transaction.all.offset(10).limit(5)
-      
+
       expect(Rails.cache).to receive(:fetch).with(
         a_string_starting_with("total_count_"),
         expires_in: 5.minutes
       ).and_return(15)
-      
+
       count = controller_instance.send(:get_total_count, collection)
       expect(count).to eq(15)
     end
@@ -142,7 +142,7 @@ RSpec.describe Paginatable, type: :controller do
     it 'excludes offset and limit from count query' do
       controller_instance = controller
       collection = Transaction.all.offset(10).limit(5).order(:created_at)
-      
+
       # Should count the base relation without offset/limit
       expect(controller_instance.send(:get_total_count, collection)).to eq(15)
     end
@@ -151,9 +151,9 @@ RSpec.describe Paginatable, type: :controller do
   describe '#paginated_json' do
     it 'returns properly structured JSON with default data key' do
       get :index, params: { page: 1, per_page: 10 }
-      
+
       json = JSON.parse(response.body)
-      
+
       expect(json).to have_key('transactions')
       expect(json).to have_key('pagination')
       expect(json['transactions']).to be_an(Array)
@@ -179,9 +179,9 @@ RSpec.describe Paginatable, type: :controller do
 
       it 'uses custom data key' do
         get :custom_key
-        
+
         json = JSON.parse(response.body)
-        
+
         expect(json).to have_key('items')
         expect(json).not_to have_key('transactions')
       end
@@ -196,9 +196,9 @@ RSpec.describe Paginatable, type: :controller do
 
       it 'handles empty collections gracefully' do
         get :index
-        
+
         json = JSON.parse(response.body)
-        
+
         expect(json['transactions']).to eq([])
         expect(json['pagination']['total_count']).to eq(0)
         expect(json['pagination']['total_pages']).to eq(0)
@@ -210,9 +210,9 @@ RSpec.describe Paginatable, type: :controller do
     context 'with page beyond total pages' do
       it 'returns empty results for pages beyond total' do
         get :index, params: { page: 999, per_page: 10 }
-        
+
         json = JSON.parse(response.body)
-        
+
         expect(json['transactions']).to eq([])
         expect(json['pagination']['current_page']).to eq(999)
         expect(json['pagination']['total_count']).to eq(15)
@@ -243,9 +243,9 @@ RSpec.describe Paginatable, type: :controller do
 
       it 'works with complex ActiveRecord queries' do
         get :filtered
-        
+
         json = JSON.parse(response.body)
-        
+
         expect(json['transactions'].length).to eq(5)
         expect(json['pagination']['total_count']).to eq(5)
       end
@@ -274,9 +274,9 @@ RSpec.describe Paginatable, type: :controller do
         new_transaction = create(:transaction, created_at: 30.minutes.ago)
 
         get :ordered, params: { per_page: 5 }
-        
+
         json = JSON.parse(response.body)
-        
+
         # Should be ordered by created_at desc
         first_transaction_id = json['transactions'].first['id']
         expect(first_transaction_id).to eq(new_transaction.id)
@@ -297,11 +297,11 @@ RSpec.describe Paginatable, type: :controller do
     it 'caches count queries to avoid expensive recalculation' do
       controller_instance = controller
       collection = Transaction.all
-      
+
       # First call should hit the database and cache
       expect(Rails.cache).to receive(:fetch).and_call_original
       controller_instance.send(:get_total_count, collection)
-      
+
       # Subsequent calls should use cache
       expect(Rails.cache).to receive(:fetch).and_return(15)
       controller_instance.send(:get_total_count, collection)

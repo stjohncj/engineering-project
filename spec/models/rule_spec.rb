@@ -91,26 +91,26 @@ RSpec.describe Rule, type: :model do
   describe '#apply_to!' do
     let(:category) { create(:category, name: 'Groceries') }
     let(:transportation_category) { create(:category, name: 'Transportation') }
-    
+
     context 'with set_category action' do
       let(:rule) do
-        create(:rule, 
+        create(:rule,
                category: category,
-               conditions: { "description_contains" => ["grocery"] },
+               conditions: { "description_contains" => [ "grocery" ] },
                actions: { "set_category" => "Transportation" })
       end
 
       it 'sets the category on the transaction' do
         transaction = create(:transaction, description: 'Grocery Store Purchase')
         rule.apply_to!(transaction)
-        
+
         expect(transaction.reload.category).to eq(transportation_category)
       end
     end
 
     context 'with set_status action' do
       let(:rule) do
-        create(:rule, 
+        create(:rule,
                category: category,
                conditions: { "amount_greater_than" => 1000.0 },
                actions: { "set_status" => "flagged" })
@@ -119,7 +119,7 @@ RSpec.describe Rule, type: :model do
       it 'sets the status on the transaction' do
         transaction = create(:transaction, amount: 1500.0)
         rule.apply_to!(transaction)
-        
+
         expect(transaction.reload.status).to eq('flagged')
       end
     end
@@ -127,23 +127,23 @@ RSpec.describe Rule, type: :model do
     it 'only applies to transactions that match conditions' do
       rule = create(:rule, :grocery_rule, category: category)
       transaction = create(:transaction, description: 'Restaurant Dinner')
-      
+
       expect { rule.apply_to!(transaction) }.not_to change { transaction.reload.category }
     end
   end
 
   describe 'JSON serialization' do
     it 'properly serializes and deserializes conditions' do
-      conditions = { "description_contains" => ["grocery", "food"], "amount_less_than" => 100.0 }
+      conditions = { "description_contains" => [ "grocery", "food" ], "amount_less_than" => 100.0 }
       rule = create(:rule, conditions: conditions)
-      
+
       expect(rule.reload.conditions).to eq(conditions)
     end
 
     it 'properly serializes and deserializes actions' do
       actions = { "set_category" => "Groceries", "set_status" => "approved" }
       rule = create(:rule, actions: actions)
-      
+
       expect(rule.reload.actions).to eq(actions)
     end
   end

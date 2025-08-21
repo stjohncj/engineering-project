@@ -43,7 +43,7 @@ RSpec.describe 'CSV Import', type: :system do
     before do
       # Create a temporary CSV file for testing
       File.write(csv_file_path, csv_content)
-      
+
       visit '/upload'
       sleep(2) # Wait for React to load
     end
@@ -55,12 +55,12 @@ RSpec.describe 'CSV Import', type: :system do
 
     it 'uploads and processes CSV file successfully', js: true do
       find('.file-input', visible: false).set(csv_file_path)
-      
+
       click_button '🚀 Import Transactions'
-      
+
       # Wait for import to complete
       sleep(3)
-      
+
       # Should show SUCCESS result with proper data
       expect(page).to have_css('.result-success', text: 'Successfully processed')
       expect(page).to have_content('✅ Imported:')
@@ -69,16 +69,16 @@ RSpec.describe 'CSV Import', type: :system do
 
     it 'shows import progress', js: true do
       find('.file-input', visible: false).set(csv_file_path)
-      
+
       click_button '🚀 Import Transactions'
-      
+
       # Should show processing state immediately
       expect(page).to have_button('⏳ Processing...', disabled: true)
     end
 
     it 'displays selected file name', js: true do
       find('.file-input', visible: false).set(csv_file_path)
-      
+
       expect(page).to have_content('📄 test_import.csv')
     end
   end
@@ -96,7 +96,7 @@ RSpec.describe 'CSV Import', type: :system do
 
     before do
       File.write(invalid_csv_path, invalid_csv_content)
-      
+
       visit '/upload'
       sleep(2) # Wait for React to load
     end
@@ -107,12 +107,12 @@ RSpec.describe 'CSV Import', type: :system do
 
     it 'handles invalid CSV data gracefully', js: true do
       find('.file-input', visible: false).set(invalid_csv_path)
-      
+
       click_button '🚀 Import Transactions'
-      
+
       # Wait for processing
       sleep(3)
-      
+
       # Should show detailed error information, not just any message
       expect(page).to have_css('.result-error, .result-warning')
       expect(page).to have_content('error').or have_content('invalid')
@@ -121,7 +121,7 @@ RSpec.describe 'CSV Import', type: :system do
     it 'validates file selection before import', js: true do
       # Try to import without selecting a file - button should be disabled
       expect(page).to have_button('🚀 Import Transactions', disabled: true)
-      
+
       # The button is properly disabled which prevents submission without a file
       # This is the expected validation behavior
     end
@@ -130,10 +130,10 @@ RSpec.describe 'CSV Import', type: :system do
       # Create a non-CSV file
       txt_file_path = Rails.root.join('tmp', 'not_csv.txt')
       File.write(txt_file_path, 'This is not a CSV file')
-      
+
       begin
         find('.file-input', visible: false).set(txt_file_path)
-        
+
         # Should show error for invalid file type
         expect(page).to have_content('Please select a valid CSV file.')
       ensure
@@ -146,21 +146,21 @@ RSpec.describe 'CSV Import', type: :system do
     it 'navigates to CSV import from dashboard', js: true do
       visit root_path
       sleep(2)
-      
+
       click_link '📁 Import CSV Transactions'
       sleep(1)
-      
+
       expect(page).to have_content('📁 CSV Import')
       expect(current_path).to eq('/upload')
     end
-    
+
     it 'navigates back to dashboard from CSV import', js: true do
       visit '/upload'
       sleep(2)
-      
+
       click_link '← Back to Dashboard'
       sleep(1)
-      
+
       expect(page).to have_content('📊 Bookkeeping System')
       expect(current_path).to eq('/')
     end
@@ -171,7 +171,7 @@ RSpec.describe 'CSV Import', type: :system do
 
     before do
       File.write(csv_file_path, csv_content)
-      
+
       visit '/upload'
       sleep(2) # Wait for React to load
     end
@@ -183,9 +183,9 @@ RSpec.describe 'CSV Import', type: :system do
     it 'frontend calls the correct API endpoint', js: true do
       # This test would have caught the route mismatch!
       # Monitor network requests to ensure frontend calls the right endpoint
-      
+
       find('.file-input', visible: false).set(csv_file_path)
-      
+
       # Intercept fetch calls to verify the endpoint
       page.execute_script("
         window.fetchCalls = [];
@@ -195,17 +195,17 @@ RSpec.describe 'CSV Import', type: :system do
           return originalFetch(url, options);
         };
       ")
-      
+
       click_button '🚀 Import Transactions'
       sleep(3)
-      
+
       # Verify the frontend called the correct endpoint
       fetch_calls = page.evaluate_script("window.fetchCalls")
       import_call = fetch_calls.find { |call| call['url'].include?('import') && call['method'] == 'POST' }
-      
+
       expect(import_call).not_to be_nil, "No POST request to import endpoint found"
       expect(import_call['url']).to include('/api/v1/transactions/import')
-      
+
       # Most importantly: Should NOT result in routing errors
       expect(page).not_to have_content('No route matches')
       expect(page).not_to have_content('ActionController::RoutingError')
@@ -213,20 +213,20 @@ RSpec.describe 'CSV Import', type: :system do
 
     it 'successfully calls the API and receives JSON response', js: true do
       find('.file-input', visible: false).set(csv_file_path)
-      
+
       click_button '🚀 Import Transactions'
-      
+
       # Wait for API call to complete
       sleep(3)
-      
+
       # Should NOT show network error or HTML parsing errors
       expect(page).not_to have_content('Network error occurred during upload')
       expect(page).not_to have_content('Unexpected token')
       expect(page).not_to have_content('<!DOCTYPE')
-      
+
       # Should show proper result message (success, error, or warning)
       expect(page).to have_css('.result-message')
-      
+
       # Should show structured response data
       expect(page).to have_content('processed').or have_content('imported').or have_content('error')
     end
@@ -239,27 +239,27 @@ RSpec.describe 'CSV Import', type: :system do
           return Promise.reject(new Error('Network connection failed'));
         };
       ")
-      
+
       find('.file-input', visible: false).set(csv_file_path)
       click_button '🚀 Import Transactions'
-      
+
       sleep(3)
-      
+
       # Should show network error message
       expect(page).to have_css('.result-error')
       expect(page).to have_content('Network error').or have_content('connection failed')
-      
+
       # Restore fetch for other tests
       page.execute_script("window.fetch = originalFetch;")
     end
 
     it 'validates API response format', js: true do
       find('.file-input', visible: false).set(csv_file_path)
-      
+
       click_button '🚀 Import Transactions'
-      
+
       sleep(3)
-      
+
       # Should show structured data from API response
       if page.has_css?('.result-success')
         # Check for expected response fields
@@ -277,7 +277,7 @@ RSpec.describe 'CSV Import', type: :system do
 
     before do
       File.write(csv_file_path, csv_content)
-      
+
       visit '/upload'
       sleep(2) # Wait for React to load
     end
@@ -288,15 +288,15 @@ RSpec.describe 'CSV Import', type: :system do
 
     it 'shows detailed import results on success', js: true do
       find('.file-input', visible: false).set(csv_file_path)
-      
+
       click_button '🚀 Import Transactions'
-      
+
       # Wait for import to complete
       sleep(3)
-      
+
       # Should show structured results with counts
       expect(page).to have_css('.result-message')
-      
+
       if page.has_css?('.result-success')
         expect(page).to have_content('Successfully processed')
         expect(page).to have_content('✅ Imported:')
@@ -308,13 +308,13 @@ RSpec.describe 'CSV Import', type: :system do
       invalid_content = "invalid,data,format\nno,proper,headers"
       invalid_path = Rails.root.join('tmp', 'server_error_test.csv')
       File.write(invalid_path, invalid_content)
-      
+
       begin
         find('.file-input', visible: false).set(invalid_path)
-        
+
         click_button '🚀 Import Transactions'
         sleep(3)
-        
+
         # Should show meaningful error details
         if page.has_css?('.result-error')
           expect(page).to have_content('error').or have_content('failed')
@@ -332,7 +332,7 @@ RSpec.describe 'CSV Import', type: :system do
     it 'shows drag and drop area', js: true do
       visit '/upload'
       sleep(2)
-      
+
       expect(page).to have_css('.file-input-container')
       expect(page).to have_content('drag & drop')
     end

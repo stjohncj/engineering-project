@@ -1,16 +1,16 @@
 class Api::V1::DashboardController < ApplicationController
   # Cache statistics for 5 minutes since they don't change frequently
   STATS_CACHE_DURATION = 5.minutes
-  
+
   def statistics
     # Use Rails cache to store expensive statistics calculations
     stats = Rails.cache.fetch("dashboard_statistics", expires_in: STATS_CACHE_DURATION) do
       calculate_statistics
     end
-    
+
     render json: { statistics: stats }
   end
-  
+
   def recent_transactions
     # Cache recent transactions for 1 minute
     transactions = Rails.cache.fetch("recent_transactions", expires_in: 1.minute) do
@@ -19,10 +19,10 @@ class Api::V1::DashboardController < ApplicationController
                  .limit(10)
                  .map { |t| transaction_json(t) }
     end
-    
+
     render json: { transactions: transactions }
   end
-  
+
   def active_anomalies
     # Cache active anomalies for 2 minutes
     anomalies = Rails.cache.fetch("active_anomalies", expires_in: 2.minutes) do
@@ -32,12 +32,12 @@ class Api::V1::DashboardController < ApplicationController
                       .limit(5)
                       .map { |a| anomaly_json(a) }
     end
-    
+
     render json: { anomalies: anomalies }
   end
-  
+
   private
-  
+
   def calculate_statistics
     # Use efficient database queries with proper indexing
     {
@@ -66,7 +66,7 @@ class Api::V1::DashboardController < ApplicationController
       end
     }
   end
-  
+
   def calculate_monthly_trends
     # Efficient query using SQL GROUP BY with proper indexing on transaction_date
     Transaction.group("DATE_TRUNC('month', transaction_date)")
@@ -74,7 +74,7 @@ class Api::V1::DashboardController < ApplicationController
                .count
                .transform_keys { |k| k.is_a?(Array) ? { month: k[0], status: k[1] } : k }
   end
-  
+
   def calculate_category_breakdown
     # Use joins and group to efficiently calculate category statistics
     Transaction.joins(:category)
@@ -88,7 +88,7 @@ class Api::V1::DashboardController < ApplicationController
                  }
                end
   end
-  
+
   def transaction_json(transaction)
     {
       id: transaction.id,
@@ -100,7 +100,7 @@ class Api::V1::DashboardController < ApplicationController
       anomaly_count: transaction.anomaly_detections.count
     }
   end
-  
+
   def anomaly_json(anomaly)
     {
       id: anomaly.id,

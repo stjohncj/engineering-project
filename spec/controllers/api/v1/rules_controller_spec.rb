@@ -6,7 +6,7 @@ RSpec.describe Api::V1::RulesController, type: :controller do
     {
       name: 'Test Rule',
       description: 'A test rule for specs',
-      conditions: { 'description_contains' => ['test', 'sample'] },
+      conditions: { 'description_contains' => [ 'test', 'sample' ] },
       actions: { 'set_category' => 'Test Category' },
       category_id: category.id,
       active: true
@@ -188,7 +188,7 @@ RSpec.describe Api::V1::RulesController, type: :controller do
 
     context 'with valid parameters' do
       let(:new_attributes) do
-        { 
+        {
           name: 'Updated Rule',
           conditions: { 'amount_greater_than' => 100.0 },
           actions: { 'set_status' => 'flagged' }
@@ -288,9 +288,9 @@ RSpec.describe Api::V1::RulesController, type: :controller do
       let(:complex_rule) do
         create(:rule,
                conditions: {
-                 'description_contains' => ['grocery', 'food', 'supermarket'],
+                 'description_contains' => [ 'grocery', 'food', 'supermarket' ],
                  'amount_range' => { 'min' => 10.0, 'max' => 500.0 },
-                 'exclude_descriptions' => ['gas', 'fuel']
+                 'exclude_descriptions' => [ 'gas', 'fuel' ]
                },
                actions: {
                  'set_category' => 'Groceries',
@@ -302,8 +302,8 @@ RSpec.describe Api::V1::RulesController, type: :controller do
       it 'properly serializes complex conditions and actions' do
         get :show, params: { id: complex_rule.to_param }
         json = JSON.parse(response.body)
-        
-        expect(json['rule']['conditions']['description_contains']).to eq(['grocery', 'food', 'supermarket'])
+
+        expect(json['rule']['conditions']['description_contains']).to eq([ 'grocery', 'food', 'supermarket' ])
         expect(json['rule']['conditions']['amount_range']).to eq({ 'min' => 10.0, 'max' => 500.0 })
         expect(json['rule']['actions']['set_category']).to eq('Groceries')
       end
@@ -318,7 +318,7 @@ RSpec.describe Api::V1::RulesController, type: :controller do
                    { 'or' => [
                      { 'amount_greater_than' => 50.0 },
                      { 'time_range' => { 'start' => '18:00', 'end' => '23:00' } }
-                   ]}
+                   ] }
                  ]
                })
       end
@@ -326,7 +326,7 @@ RSpec.describe Api::V1::RulesController, type: :controller do
       it 'handles nested JSON conditions correctly' do
         get :show, params: { id: nested_rule.to_param }
         json = JSON.parse(response.body)
-        
+
         expect(json['rule']['conditions']['and']).to be_an(Array)
         expect(json['rule']['conditions']['and'].first['description_contains']).to eq('restaurant')
       end
@@ -335,30 +335,30 @@ RSpec.describe Api::V1::RulesController, type: :controller do
 
   describe 'validation edge cases' do
     it 'validates JSON format for conditions' do
-      post :create, params: { 
-        rule: valid_attributes.merge(conditions: 'invalid json string') 
+      post :create, params: {
+        rule: valid_attributes.merge(conditions: 'invalid json string')
       }
       # This should be caught by our JSON column or validation
       expect(response).to have_http_status(:unprocessable_entity)
     end
 
     it 'validates JSON format for actions' do
-      post :create, params: { 
-        rule: valid_attributes.merge(actions: 'invalid json string') 
+      post :create, params: {
+        rule: valid_attributes.merge(actions: 'invalid json string')
       }
       expect(response).to have_http_status(:unprocessable_entity)
     end
 
     it 'requires at least one condition' do
-      post :create, params: { 
-        rule: valid_attributes.merge(conditions: {}) 
+      post :create, params: {
+        rule: valid_attributes.merge(conditions: {})
       }
       expect(response).to have_http_status(:unprocessable_entity)
     end
 
     it 'requires at least one action' do
-      post :create, params: { 
-        rule: valid_attributes.merge(actions: {}) 
+      post :create, params: {
+        rule: valid_attributes.merge(actions: {})
       }
       expect(response).to have_http_status(:unprocessable_entity)
     end

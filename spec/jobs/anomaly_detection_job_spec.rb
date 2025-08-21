@@ -32,7 +32,7 @@ RSpec.describe AnomalyDetectionJob, type: :job do
     context 'when transaction is not found' do
       it 'logs a warning and does not raise an error' do
         non_existent_id = 999999
-        
+
         expect(Rails.logger).to receive(:warn).with("AnomalyDetectionJob: Transaction #{non_existent_id} not found")
         expect { described_class.perform_now(non_existent_id) }.not_to raise_error
       end
@@ -40,14 +40,14 @@ RSpec.describe AnomalyDetectionJob, type: :job do
 
     context 'when anomaly detection service raises an error' do
       let(:error_message) { "Service error" }
-      
+
       before do
         allow(anomaly_detection_service).to receive(:detect_and_flag).and_raise(StandardError, error_message)
       end
 
       it 'logs the error and re-raises it for retry logic' do
         expect(Rails.logger).to receive(:error).with("AnomalyDetectionJob failed for transaction #{transaction.id}: #{error_message}")
-        
+
         expect { described_class.perform_now(transaction.id) }.to raise_error(StandardError, error_message)
       end
     end

@@ -51,7 +51,7 @@ RSpec.describe Transaction, type: :model do
     it 'destroys dependent anomaly_detections when deleted' do
       transaction = create(:transaction)
       anomaly = create(:anomaly_detection, transaction: transaction)
-      
+
       expect { transaction.destroy }.to change(AnomalyDetection, :count).by(-1)
     end
   end
@@ -75,7 +75,7 @@ RSpec.describe Transaction, type: :model do
 
   describe 'scopes and methods' do
     let(:category) { create(:category, :groceries) }
-    
+
     before do
       create(:transaction, :positive_amount, category: category, transaction_date: 1.week.ago)
       create(:transaction, :negative_amount, category: category, transaction_date: 2.weeks.ago)
@@ -95,11 +95,11 @@ RSpec.describe Transaction, type: :model do
 
   describe '#generate_duplicate_hash' do
     it 'generates a hash for duplicate detection' do
-      transaction = create(:transaction, 
+      transaction = create(:transaction,
                           description: 'Test Transaction',
                           amount: 100.50,
                           transaction_date: Date.current)
-      
+
       expect(transaction.duplicate_hash).to be_present
       expect(transaction.duplicate_hash.length).to eq(64) # SHA256 length
     end
@@ -110,11 +110,11 @@ RSpec.describe Transaction, type: :model do
         amount: 85.50,
         transaction_date: Date.current
       }
-      
+
       transaction1 = create(:transaction, attrs)
       transaction2 = build(:transaction, attrs)
       transaction2.send(:generate_duplicate_hash)
-      
+
       expect(transaction1.duplicate_hash).to eq(transaction2.duplicate_hash)
     end
   end
@@ -123,7 +123,7 @@ RSpec.describe Transaction, type: :model do
     it 'generates duplicate hash before save' do
       transaction = build(:transaction)
       expect(transaction.duplicate_hash).to be_nil
-      
+
       transaction.save
       expect(transaction.duplicate_hash).to be_present
     end

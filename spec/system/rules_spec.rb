@@ -6,7 +6,7 @@ RSpec.describe 'Rule Management', type: :system do
   end
 
   let!(:category) { create(:category, name: 'Shopping') }
-  let!(:rule) { create(:rule, 
+  let!(:rule) { create(:rule,
     name: 'Categorize Amazon purchases',
     condition_field: 'description',
     condition_operator: 'contains',
@@ -15,7 +15,7 @@ RSpec.describe 'Rule Management', type: :system do
     action_value: category.name,
     active: true
   )}
-  let!(:inactive_rule) { create(:rule, 
+  let!(:inactive_rule) { create(:rule,
     name: 'Inactive Rule',
     active: false
   )}
@@ -38,7 +38,7 @@ RSpec.describe 'Rule Management', type: :system do
     it 'provides link to view all rules via API', js: true do
       visit root_path
       sleep(2)
-      
+
       expect(page).to have_link('View Active Rules', href: '/api/v1/rules')
     end
   end
@@ -49,21 +49,21 @@ RSpec.describe 'Rule Management', type: :system do
         amount,description,date,category
         99.99,Amazon Purchase,2025-08-19,
       CSV
-      
+
       csv_file_path = Rails.root.join('tmp', 'rule_test.csv')
       File.write(csv_file_path, csv_content)
-      
+
       visit '/upload'
       sleep(2)
-      
+
       find('.file-input', visible: false).set(csv_file_path)
       click_button '🚀 Import Transactions'
-      
+
       sleep(3) # Wait for import
-      
+
       # Should show result message
       expect(page).to have_css('.result-message')
-      
+
       File.delete(csv_file_path) if File.exist?(csv_file_path)
     end
   end

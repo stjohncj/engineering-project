@@ -12,7 +12,7 @@ RSpec.describe BulkAnomalyDetectionJob, type: :job do
     before do
       allow(Rails.logger).to receive(:info)
       allow(Rails.logger).to receive(:error)
-      
+
       transactions.each do |transaction|
         service = instance_double(AnomalyDetectionService)
         allow(AnomalyDetectionService).to receive(:new).with(transaction).and_return(service)
@@ -72,7 +72,7 @@ RSpec.describe BulkAnomalyDetectionJob, type: :job do
 
       it 'logs the error and re-raises it' do
         expect(Rails.logger).to receive(:error).with("BulkAnomalyDetectionJob failed: Database connection failed")
-        
+
         expect { described_class.perform_now(transaction_ids) }.to raise_error(StandardError, "Database connection failed")
       end
     end
@@ -86,7 +86,7 @@ RSpec.describe BulkAnomalyDetectionJob, type: :job do
     end
 
     context 'with non-existent transaction IDs' do
-      let(:non_existent_ids) { [999999, 999998] }
+      let(:non_existent_ids) { [ 999999, 999998 ] }
 
       it 'handles missing transactions gracefully' do
         expect(Rails.logger).to receive(:info).with("BulkAnomalyDetectionJob: Processed 0 transactions, 0 failed")

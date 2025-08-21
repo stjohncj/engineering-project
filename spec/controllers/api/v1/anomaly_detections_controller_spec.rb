@@ -53,7 +53,7 @@ RSpec.describe Api::V1::AnomalyDetectionsController, type: :controller do
 
     it 'handles unpermitted parameters gracefully' do
       # This test catches ActionController::UnfilteredParameters errors
-      get :index, params: { 
+      get :index, params: {
         malicious_param: 'hack_attempt',
         unresolved: 'true',
         bad_nested: { param: 'value' }
@@ -117,7 +117,7 @@ RSpec.describe Api::V1::AnomalyDetectionsController, type: :controller do
         get :index, params: { anomaly_type: 'potential_duplicate' }
         json = JSON.parse(response.body)
         types = json['anomaly_detections'].map { |a| a['anomaly_type'] }.uniq
-        expect(types).to eq(['potential_duplicate'])
+        expect(types).to eq([ 'potential_duplicate' ])
       end
     end
 
@@ -354,7 +354,7 @@ RSpec.describe Api::V1::AnomalyDetectionsController, type: :controller do
       get :show, params: { id: anomaly.to_param }
       json = JSON.parse(response.body)
       anomaly_data = json['anomaly_detection']
-      
+
       expected_fields = %w[id anomaly_type description severity severity_label resolved detected_at metadata transaction]
       expect(anomaly_data.keys).to include(*expected_fields)
     end

@@ -12,27 +12,27 @@ Rails.application.routes.draw do
         collection do
           patch :bulk_update
           post :import_csv
-          post 'import', to: 'transactions#import_csv'  # Alias for frontend
+          post "import", to: "transactions#import_csv"  # Alias for frontend
           get :anomalies
         end
       end
       resources :categories
       resources :rules
-      resources :anomaly_detections, only: [:index, :show, :update] do
+      resources :anomaly_detections, only: [ :index, :show, :update ] do
         member do
           patch :resolve
         end
       end
       # Dashboard API endpoints with caching
-      get 'dashboard/statistics', to: 'dashboard#statistics'
-      get 'dashboard/recent_transactions', to: 'dashboard#recent_transactions'
-      get 'dashboard/active_anomalies', to: 'dashboard#active_anomalies'
-      
+      get "dashboard/statistics", to: "dashboard#statistics"
+      get "dashboard/recent_transactions", to: "dashboard#recent_transactions"
+      get "dashboard/active_anomalies", to: "dashboard#active_anomalies"
+
       # Performance monitoring endpoints
-      get 'performance/health', to: 'performance#health'
-      get 'performance/metrics', to: 'performance#metrics'
-      get 'performance/database_stats', to: 'performance#database_stats'
-      get 'performance/cache_stats', to: 'performance#cache_stats'
+      get "performance/health", to: "performance#health"
+      get "performance/metrics", to: "performance#metrics"
+      get "performance/database_stats", to: "performance#database_stats"
+      get "performance/cache_stats", to: "performance#cache_stats"
     end
   end
   # Define your application routes per the DSL in https://guides.rubyonrails.org/routing.html

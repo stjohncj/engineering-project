@@ -23,7 +23,7 @@ module EngineeringProject
     #
     # config.time_zone = "Central Time (US & Canada)"
     # config.eager_load_paths << Rails.root.join("extras")
-    
+
     # Configure RSpec as the default test framework
     config.generators do |g|
       g.test_framework :rspec,

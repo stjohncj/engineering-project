@@ -12,7 +12,7 @@ class CreateTransactions < ActiveRecord::Migration[8.0]
 
       t.timestamps
     end
-    
+
     add_index :transactions, :transaction_date
     add_index :transactions, :amount
     add_index :transactions, :status

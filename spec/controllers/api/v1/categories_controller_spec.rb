@@ -32,7 +32,7 @@ RSpec.describe Api::V1::CategoriesController, type: :controller do
     it 'includes transaction count for each category' do
       category = categories.first
       create_list(:transaction, 2, category: category)
-      
+
       get :index
       json = JSON.parse(response.body)
       category_json = json['categories'].find { |c| c['id'] == category.id }
@@ -42,7 +42,7 @@ RSpec.describe Api::V1::CategoriesController, type: :controller do
     it 'orders categories by name' do
       create(:category, name: 'Zebra Category')
       create(:category, name: 'Alpha Category')
-      
+
       get :index
       json = JSON.parse(response.body)
       names = json['categories'].map { |c| c['name'] }
@@ -232,10 +232,10 @@ RSpec.describe Api::V1::CategoriesController, type: :controller do
       it 'includes correct transaction counts' do
         get :index
         json = JSON.parse(response.body)
-        
+
         groceries_data = json['categories'].find { |c| c['name'] == 'Groceries' }
         transportation_data = json['categories'].find { |c| c['name'] == 'Transportation' }
-        
+
         expect(groceries_data['transaction_count']).to eq(3)
         expect(transportation_data['transaction_count']).to eq(2)
       end
@@ -248,7 +248,7 @@ RSpec.describe Api::V1::CategoriesController, type: :controller do
     it 'returns properly formatted JSON' do
       get :show, params: { id: category.to_param }
       json = JSON.parse(response.body)
-      
+
       expect(json).to have_key('category')
       expect(json['category']).to include('id', 'name', 'description', 'created_at', 'updated_at')
     end
@@ -256,7 +256,7 @@ RSpec.describe Api::V1::CategoriesController, type: :controller do
     it 'includes timestamps in ISO format' do
       get :show, params: { id: category.to_param }
       json = JSON.parse(response.body)
-      
+
       expect { DateTime.parse(json['category']['created_at']) }.not_to raise_error
       expect { DateTime.parse(json['category']['updated_at']) }.not_to raise_error
     end

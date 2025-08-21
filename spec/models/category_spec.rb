@@ -35,14 +35,14 @@ RSpec.describe Category, type: :model do
     it 'destroys dependent transactions when deleted' do
       category = create(:category)
       transaction = create(:transaction, category: category)
-      
+
       expect { category.destroy }.to change(Transaction, :count).by(-1)
     end
 
     it 'destroys dependent rules when deleted' do
       category = create(:category)
       rule = create(:rule, category: category)
-      
+
       expect { category.destroy }.to change(Rule, :count).by(-1)
     end
   end
