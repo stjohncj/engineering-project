@@ -125,7 +125,7 @@ RSpec.describe 'Transaction Status Update Filtering', type: :system, js: true do
       expect(@flagged_transaction_1.status).to eq('approved')
     end
 
-    it 'removes deleted transaction from view immediately', js: true do
+    it 'removes rejected transaction from view immediately', js: true do
       skip "Test isolation issue - works individually but fails in suite due to transaction state persistence between tests"
       
       visit '/review'
@@ -134,25 +134,26 @@ RSpec.describe 'Transaction Status Update Filtering', type: :system, js: true do
       expect(page).to have_content('Second flagged transaction')
       initial_count = all('.transaction-card').count
 
-      # Delete the second transaction
+      # Reject the second transaction
       transaction_card = all('.transaction-card').find { |card| card.has_content?('Second flagged transaction') }
       within(transaction_card) do
         accept_confirm do
-          click_button '🗑️ Delete'
+          click_button '❌ Reject'
         end
       end
 
       sleep(1)
 
-      # Verify the deleted transaction is no longer visible
+      # Verify the rejected transaction is no longer visible
       expect(page).not_to have_content('Second flagged transaction')
       
       # Verify count decreased
       updated_count = all('.transaction-card').count
       expect(updated_count).to eq(initial_count - 1)
 
-      # Verify the transaction was actually deleted
-      expect(Transaction.exists?(@flagged_transaction_2.id)).to be_falsey
+      # Verify the transaction was actually rejected (not deleted)
+      @flagged_transaction_2.reload
+      expect(@flagged_transaction_2.status).to eq('rejected')
     end
 
     it 'updates transaction in place when edited but still matches filter', js: true do

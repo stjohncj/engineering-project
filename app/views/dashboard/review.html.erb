@@ -523,7 +523,7 @@
         };
 
         // Transaction Card Component
-        const TransactionCard = ({ transaction, onEdit, onDelete, onApprove, onResolveAnomaly }) => {
+        const TransactionCard = ({ transaction, onEdit, onReject, onApprove, onResolveAnomaly }) => {
             return h('div', { className: 'transaction-card' },
                 h('div', { className: 'transaction-header' },
                     h('div', { className: 'transaction-info' },
@@ -576,8 +576,8 @@
                     }, '✏️ Edit'),
                     h('button', { 
                         className: 'btn btn-danger',
-                        onClick: () => onDelete(transaction)
-                    }, '🗑️ Delete')
+                        onClick: () => onReject(transaction)
+                    }, '❌ Reject')
                 )
             );
         };
@@ -692,29 +692,43 @@
                 }
             };
 
-            const handleDelete = async (transaction) => {
-                if (!confirm(`Delete transaction "${transaction.description}"? This action cannot be undone.`)) return;
+            const handleReject = async (transaction) => {
+                if (!confirm(`Reject transaction "${transaction.description}"? This will mark it as rejected.`)) return;
                 
                 try {
                     const csrfToken = document.querySelector('meta[name="csrf-token"]')?.getAttribute('content');
                     const response = await fetch(`/api/v1/transactions/${transaction.id}`, {
-                        method: 'DELETE',
+                        method: 'PATCH',
                         headers: {
+                            'Content-Type': 'application/json',
                             'X-CSRF-Token': csrfToken
-                        }
+                        },
+                        body: JSON.stringify({ 
+                            transaction: { status: 'rejected' }
+                        })
                     });
 
                     if (response.ok) {
-                        // Remove the transaction from local state immediately since it's deleted
-                        setTransactions(prevTransactions => 
-                            prevTransactions.filter(t => t.id !== transaction.id)
-                        );
+                        const updatedTransaction = await response.json();
+                        // Remove from current view if it no longer matches the current filter
+                        if (filters.status === 'flagged' && updatedTransaction.transaction.status !== 'flagged') {
+                            setTransactions(prevTransactions => 
+                                prevTransactions.filter(t => t.id !== transaction.id)
+                            );
+                        } else {
+                            // Update the transaction in local state
+                            setTransactions(prevTransactions => 
+                                prevTransactions.map(t => 
+                                    t.id === transaction.id ? updatedTransaction.transaction : t
+                                )
+                            );
+                        }
                         
-                        // Also reload to ensure pagination counts are correct
+                        // Reload to ensure pagination counts are correct
                         setTimeout(() => loadTransactions(currentPage, true), 100);
                     } else {
                         const error = await response.json();
-                        alert('Error deleting transaction: ' + (error.error || 'Unknown error'));
+                        alert('Error rejecting transaction: ' + (error.error || 'Unknown error'));
                     }
                 } catch (error) {
                     alert('Network error: ' + error.message);
@@ -862,7 +876,7 @@
                             key: transaction.id,
                             transaction,
                             onEdit: setEditingTransaction,
-                            onDelete: handleDelete,
+                            onReject: handleReject,
                             onApprove: handleApprove,
                             onResolveAnomaly: handleResolveAnomaly
                         })

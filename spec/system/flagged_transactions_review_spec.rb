@@ -124,7 +124,7 @@ RSpec.describe 'Flagged Transactions Review', type: :system do
       within('.transaction-card', match: :first) do
         expect(page).to have_button('✓ Approve')
         expect(page).to have_button('✏️ Edit')
-        expect(page).to have_button('🗑️ Delete')
+        expect(page).to have_button('❌ Reject')
       end
     end
 
@@ -176,27 +176,35 @@ RSpec.describe 'Flagged Transactions Review', type: :system do
       end
     end
 
-    describe 'delete functionality' do
-      it 'can delete a transaction', js: true do
+    describe 'reject functionality' do
+      it 'can reject a transaction', js: true do
         visit '/review'
         sleep(3)
 
+        # Should initially show 1 flagged transaction
+        expect(page).to have_content('Flagged Transactions (1)')
         initial_count = Transaction.count
 
         # Mock the confirmation dialog
         page.execute_script('window.confirm = function() { return true; }')
 
         within('.transaction-card', match: :first) do
-          click_button '🗑️ Delete'
+          click_button '❌ Reject'
         end
         sleep(3)
 
-        # Should remove the transaction from database and update the list
-        expect(Transaction.count).to eq(initial_count - 1)
-        expect(page).to have_content('Flagged Transactions (2)')
+        # Should mark transaction as rejected but not delete from database
+        expect(Transaction.count).to eq(initial_count)
+        # The flagged transaction should now be rejected and removed from the flagged view
+        expect(page).to have_content('Flagged Transactions (0)')
+        expect(page).to have_content('🎉 No flagged transactions found!')
+        
+        # Verify the transaction status changed to rejected
+        @flagged_transaction.reload
+        expect(@flagged_transaction.status).to eq('rejected')
       end
 
-      it 'cancels deletion when confirmation is denied', js: true do
+      it 'cancels rejection when confirmation is denied', js: true do
         visit '/review'
         sleep(3)
 
@@ -206,13 +214,14 @@ RSpec.describe 'Flagged Transactions Review', type: :system do
         page.execute_script('window.confirm = function() { return false; }')
 
         within('.transaction-card', match: :first) do
-          click_button '🗑️ Delete'
+          click_button '❌ Reject'
         end
         sleep(2)
 
-        # Should not delete anything
+        # Should not reject anything
         expect(Transaction.count).to eq(initial_count)
-        expect(page).to have_content('Flagged Transactions (3)')
+        expect(page).to have_content('Flagged Transactions (1)')
+        expect(Transaction.where(status: 'rejected').count).to eq(1) # @rejected_transaction exists from setup
       end
     end
 
