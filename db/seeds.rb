@@ -38,15 +38,6 @@ rules = [
     active: true
   },
   {
-    name: 'Flag large transactions',
-    condition_field: 'amount',
-    condition_operator: 'greater_than',
-    condition_value: '1000',
-    action_type: 'flag',
-    action_value: 'Large transaction',
-    active: true
-  },
-  {
     name: 'Categorize salary payments',
     condition_field: 'description',
     condition_operator: 'contains',
@@ -69,40 +60,40 @@ rules.each do |rule_data|
   end
 end
 
-# Create sample transactions
-sample_transactions = [
-  { amount: 12.50, description: 'Starbucks Coffee', transaction_date: 1.day.ago },
-  { amount: 45.30, description: 'Grocery shopping at Whole Foods', transaction_date: 2.days.ago },
-  { amount: 15.00, description: 'Uber ride to downtown', transaction_date: 3.days.ago },
-  { amount: 89.99, description: 'Amazon purchase - electronics', transaction_date: 4.days.ago },
-  { amount: 1200.00, description: 'Monthly rent payment', transaction_date: 5.days.ago },
-  { amount: 25.00, description: 'Netflix subscription', transaction_date: 1.week.ago },
-  { amount: 2500.00, description: 'Monthly salary deposit', transaction_date: 1.week.ago },
-  { amount: 67.89, description: 'Gas station fill-up', transaction_date: 10.days.ago },
-  { amount: 150.00, description: 'Doctor appointment copay', transaction_date: 2.weeks.ago },
-  { amount: 5000.00, description: 'Suspicious large transfer', transaction_date: 1.day.ago }
-]
+# # Create sample transactions
+# sample_transactions = [
+#   { amount: 12.50, description: 'Starbucks Coffee', transaction_date: 1.day.ago },
+#   { amount: 45.30, description: 'Grocery shopping at Whole Foods', transaction_date: 2.days.ago },
+#   { amount: 15.00, description: 'Uber ride to downtown', transaction_date: 3.days.ago },
+#   { amount: 89.99, description: 'Amazon purchase - electronics', transaction_date: 4.days.ago },
+#   { amount: 1200.00, description: 'Monthly rent payment', transaction_date: 5.days.ago },
+#   { amount: 25.00, description: 'Netflix subscription', transaction_date: 1.week.ago },
+#   { amount: 2500.00, description: 'Monthly salary deposit', transaction_date: 1.week.ago },
+#   { amount: 67.89, description: 'Gas station fill-up', transaction_date: 10.days.ago },
+#   { amount: 150.00, description: 'Doctor appointment copay', transaction_date: 2.weeks.ago },
+#   { amount: 5000.00, description: 'Suspicious large transfer', transaction_date: 1.day.ago }
+# ]
 
-puts "Creating sample transactions..."
-sample_transactions.each do |tx_data|
-  transaction = Transaction.create!(
-    amount: tx_data[:amount],
-    description: tx_data[:description],
-    transaction_date: tx_data[:transaction_date],
-    status: :pending
-  )
+# puts "Creating sample transactions..."
+# sample_transactions.each do |tx_data|
+#   transaction = Transaction.create!(
+#     amount: tx_data[:amount],
+#     description: tx_data[:description],
+#     transaction_date: tx_data[:transaction_date],
+#     status: :pending
+#   )
 
-  # Apply rules to the transaction
-  Rule.active.each do |rule|
-    rule.apply_to!(transaction)
-  end
+#   # Apply rules to the transaction
+#   Rule.active.each do |rule|
+#     rule.apply_to!(transaction)
+#   end
 
-  # Run anomaly detection
-  AnomalyDetectionService.new(transaction).detect_and_flag
-end
+#   # Run anomaly detection
+#   AnomalyDetectionService.new(transaction).detect_and_flag
+# end
 
 puts "Seed data created successfully!"
 puts "Categories: #{Category.count}"
 puts "Rules: #{Rule.count}"
-puts "Transactions: #{Transaction.count}"
-puts "Anomaly Detections: #{AnomalyDetection.count}"
+# puts "Transactions: #{Transaction.count}"
+# puts "Anomaly Detections: #{AnomalyDetection.count}"
