@@ -9,7 +9,7 @@ module QueryCounter
 
   def count_queries
     queries_before = query_count_start
-    
+
     begin
       yield
     ensure
@@ -28,7 +28,7 @@ module QueryCounter
       # Clean up thread-local storage
       Thread.current[:query_count] = nil
       Thread.current[:ar_query_log] = nil
-      
+
       # Unsubscribe from notifications
       ActiveSupport::Notifications.unsubscribe(@query_subscriber) if @query_subscriber
     end
@@ -48,7 +48,7 @@ module QueryCounter
         # Initialize if nil (defensive programming for threading issues)
         Thread.current[:query_count] ||= 0
         Thread.current[:ar_query_log] ||= []
-        
+
         Thread.current[:query_count] += 1
 
         # Store query details for debugging

@@ -14,7 +14,7 @@ class CsvImportService
   def import
     transactions_batch = []
     row_number = 0
-    
+
     # Handle both file objects and file paths
     file_path = @file.respond_to?(:path) ? @file.path : @file
 

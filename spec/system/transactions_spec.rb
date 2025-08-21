@@ -45,23 +45,23 @@ RSpec.describe 'Transaction Management', type: :system do
 
     it 'provides anomaly data through API for flagged transactions', js: true do
       # Create an anomaly for the transaction
-      anomaly = create(:anomaly_detection, 
-                      transaction_record: transaction, 
+      anomaly = create(:anomaly_detection,
+                      transaction_record: transaction,
                       resolved: false,
                       created_at: Time.current)
-      
+
       # Verify the anomaly exists and is unresolved
       transaction.reload
       expect(transaction.anomaly_detections.count).to eq(1)
       expect(transaction.anomaly_detections.unresolved.count).to eq(1)
-      
+
       # Test that the API correctly includes anomaly data
       get '/api/v1/dashboard/recent_transactions'
       expect(response).to be_successful
-      
+
       response_json = JSON.parse(response.body)
       transaction_data = response_json['transactions'].find { |t| t['id'] == transaction.id }
-      
+
       expect(transaction_data).to be_present
       expect(transaction_data['anomalies']).to be_present
       expect(transaction_data['anomalies'].length).to eq(1)
@@ -90,13 +90,13 @@ RSpec.describe 'Transaction Management', type: :system do
     before do
       # Force creation of the transactions
       count_transactions
-      
+
       # Verify the count in the database
       expect(Transaction.count).to be >= 5
-      
+
       # Clear cache to ensure fresh data
       Rails.cache.clear
-      
+
       visit root_path
       sleep(3) # Give more time for React to load and fetch data
     end

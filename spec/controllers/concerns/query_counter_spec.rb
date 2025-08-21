@@ -207,7 +207,7 @@ RSpec.describe QueryCounter, type: :controller do
       ]
 
       allow(controller_instance).to receive(:action_name).and_return("database_action")
-      
+
       expect(Rails.logger).to receive(:debug).with("QUERY_DETAILS for anonymous#database_action:")
       expect(Rails.logger).to receive(:debug).with("  1. [5.23ms] Transaction Count: SELECT COUNT(*) FROM transactions")
       expect(Rails.logger).to receive(:debug).with("  2. [12.45ms] Transaction Load: SELECT * FROM transactions LIMIT 10")
@@ -228,7 +228,7 @@ RSpec.describe QueryCounter, type: :controller do
       ]
 
       allow(controller_instance).to receive(:action_name).and_return("database_action")
-      
+
       expect(Rails.logger).to receive(:debug).with("QUERY_DETAILS for anonymous#database_action:")
       expect(Rails.logger).to receive(:debug) do |message|
         expect(message).to include('[10.0ms] Long Query:')

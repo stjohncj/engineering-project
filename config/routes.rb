@@ -2,6 +2,7 @@ Rails.application.routes.draw do
   get "dashboard/index"
   get "upload" => "dashboard#upload"
   get "review" => "dashboard#review"
+  get "rules" => "dashboard#rules"
   namespace :api do
     namespace :v1 do
       get "anomaly_detections/index"

@@ -5,7 +5,7 @@ RSpec.describe 'Dashboard API Integration', type: :system do
     driven_by(:selenium_chrome_headless)
     # Ensure completely clean database state and clear caches
     Rails.cache.clear
-    
+
     # Clean up any remaining data to prevent test contamination
     AnomalyDetection.delete_all
     Rule.delete_all
@@ -17,7 +17,7 @@ RSpec.describe 'Dashboard API Integration', type: :system do
     before do
       setup_test_data
     end
-    
+
     def setup_test_data
       @category = create(:category, name: 'Food & Dining')
       @transactions = [
@@ -103,7 +103,7 @@ RSpec.describe 'Dashboard API Integration', type: :system do
       it 'gracefully handles API errors', js: true do
         visit root_path
         sleep(2)
-        
+
         # Simulate API failure by stubbing network requests after page loads
         page.execute_script("""
           window.originalFetch = window.fetch;
@@ -121,7 +121,7 @@ RSpec.describe 'Dashboard API Integration', type: :system do
 
         # Should handle the error gracefully - page should still render
         expect(page).to have_content('📊 Bookkeeping System')
-        
+
         # May show empty state or existing cached data
         expect(page).to have_content('Recent Transactions')
 
@@ -132,7 +132,7 @@ RSpec.describe 'Dashboard API Integration', type: :system do
       it 'handles malformed API responses', js: true do
         visit root_path
         sleep(2)
-        
+
         # Simulate malformed JSON response after page loads
         page.execute_script("""
           window.originalFetch = window.fetch;
@@ -167,25 +167,25 @@ RSpec.describe 'Dashboard API Integration', type: :system do
       # due to Rails server state persistence between tests in system specs.
       # The workaround would be to restart the Rails server between tests, but that's expensive.
       skip "Test isolation issue - passes individually, fails in suite due to server state persistence"
-      
+
       # Clean up any data from previous tests
       AnomalyDetection.delete_all
-      Transaction.delete_all 
+      Transaction.delete_all
       Category.delete_all
       Rule.delete_all
       Rails.cache.clear
-      
+
       # Verify database is empty
       expect(Transaction.count).to eq(0)
       expect(Category.count).to eq(0)
-      
+
       # Force reload to see empty state
       visit root_path
       sleep(3)
 
       # Should show zero counts
       expect(page).to have_content('TOTAL TRANSACTIONS')
-      
+
       # Check for zero in the stats card
       within('.stats-grid') do
         stat_card = page.find('.stat-card', text: 'TOTAL TRANSACTIONS')
@@ -196,7 +196,7 @@ RSpec.describe 'Dashboard API Integration', type: :system do
 
       # Should show empty state messages in the recent transactions section
       expect(page).to have_content('No transactions found')
-      
+
       # Should show empty state in anomalies section
       expect(page).to have_content('🎉 No unresolved anomalies!')
     end

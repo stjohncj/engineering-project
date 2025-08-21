@@ -5,17 +5,17 @@ RSpec.describe 'CSV Import', type: :system do
     driven_by(:selenium_chrome_headless)
     # Ensure completely clean database state and clear caches
     Rails.cache.clear
-    
+
     # Clean up any remaining data to prevent test contamination
     AnomalyDetection.delete_all
     Rule.delete_all
     Transaction.delete_all
     Category.delete_all
-    
+
     # Force creation of test data before each test to ensure it's available to the browser
     setup_test_data
   end
-  
+
   def setup_test_data
     @category = create(:category, name: 'Food & Dining')
   end

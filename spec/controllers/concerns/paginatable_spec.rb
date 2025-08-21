@@ -271,7 +271,7 @@ RSpec.describe Paginatable, type: :controller do
       it 'preserves ordering in paginated results' do
         # Clear existing transactions to ensure clean test
         Transaction.delete_all
-        
+
         # Create transactions with specific timestamps
         old_transaction = create(:transaction, created_at: 1.hour.ago)
         new_transaction = create(:transaction, created_at: 30.minutes.ago)

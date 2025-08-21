@@ -1,0 +1,774 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Rules Management - Bookkeeping System</title>
+    <%= csrf_meta_tags %>
+    <%= csp_meta_tag %>
+    <%= stylesheet_link_tag "application", "data-turbo-track": "reload" %>
+    
+    <!-- React from CDN -->
+    <script crossorigin src="https://unpkg.com/react@18/umd/react.development.js"></script>
+    <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.development.js"></script>
+    
+    <style>
+        body {
+            margin: 0;
+            padding: 0;
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: #f9fafb;
+        }
+        
+        .rules-container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 2rem;
+        }
+        
+        .page-header {
+            text-align: center;
+            margin-bottom: 2rem;
+        }
+        
+        .page-header h1 {
+            color: #1f2937;
+            margin-bottom: 0.5rem;
+            font-size: 2.5rem;
+        }
+        
+        .page-header p {
+            color: #6b7280;
+            font-size: 1.125rem;
+        }
+        
+        .back-link {
+            display: inline-block;
+            margin-bottom: 1.5rem;
+            color: #2563eb;
+            text-decoration: none;
+            font-weight: 500;
+        }
+        
+        .back-link:hover {
+            color: #1d4ed8;
+        }
+        
+        .rules-section {
+            background: white;
+            border-radius: 12px;
+            box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.1);
+            padding: 2rem;
+            margin-bottom: 2rem;
+        }
+        
+        .section-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 1.5rem;
+        }
+        
+        .section-header h2 {
+            margin: 0;
+            color: #1f2937;
+        }
+        
+        .btn {
+            padding: 0.5rem 1rem;
+            border: none;
+            border-radius: 6px;
+            font-size: 0.875rem;
+            font-weight: 500;
+            cursor: pointer;
+            transition: all 0.2s;
+            text-decoration: none;
+            display: inline-block;
+        }
+        
+        .btn-primary {
+            background: #2563eb;
+            color: white;
+        }
+        
+        .btn-primary:hover {
+            background: #1d4ed8;
+        }
+        
+        .btn-secondary {
+            background: #f3f4f6;
+            color: #374151;
+            border: 1px solid #d1d5db;
+        }
+        
+        .btn-secondary:hover {
+            background: #e5e7eb;
+        }
+        
+        .btn-danger {
+            background: #dc2626;
+            color: white;
+        }
+        
+        .btn-danger:hover {
+            background: #b91c1c;
+        }
+        
+        .btn-success {
+            background: #059669;
+            color: white;
+        }
+        
+        .btn-success:hover {
+            background: #047857;
+        }
+        
+        .rules-list {
+            display: flex;
+            flex-direction: column;
+            gap: 1rem;
+        }
+        
+        .rule-card {
+            border: 1px solid #e5e7eb;
+            border-radius: 8px;
+            padding: 1.5rem;
+            background: #fafafa;
+            position: relative;
+        }
+        
+        .rule-card.inactive {
+            opacity: 0.7;
+            background: #f3f4f6;
+        }
+        
+        .rule-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+            margin-bottom: 1rem;
+        }
+        
+        .rule-name {
+            font-weight: 600;
+            font-size: 1.125rem;
+            color: #1f2937;
+            margin: 0;
+        }
+        
+        .rule-status {
+            padding: 0.25rem 0.75rem;
+            border-radius: 9999px;
+            font-size: 0.75rem;
+            font-weight: 500;
+        }
+        
+        .status-active {
+            background: #d1fae5;
+            color: #065f46;
+        }
+        
+        .status-inactive {
+            background: #fee2e2;
+            color: #991b1b;
+        }
+        
+        .rule-description {
+            color: #4b5563;
+            margin-bottom: 1rem;
+            font-size: 0.875rem;
+        }
+        
+        .rule-details {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 1rem;
+            margin-bottom: 1rem;
+        }
+        
+        .rule-detail {
+            display: flex;
+            flex-direction: column;
+            gap: 0.25rem;
+        }
+        
+        .rule-detail-label {
+            font-size: 0.75rem;
+            font-weight: 500;
+            color: #6b7280;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+        }
+        
+        .rule-detail-value {
+            font-size: 0.875rem;
+            color: #1f2937;
+        }
+        
+        .rule-actions {
+            display: flex;
+            gap: 0.5rem;
+            justify-content: flex-end;
+        }
+        
+        .form-group {
+            margin-bottom: 1rem;
+        }
+        
+        .form-group label {
+            display: block;
+            font-weight: 500;
+            color: #374151;
+            margin-bottom: 0.5rem;
+        }
+        
+        .form-group input,
+        .form-group select {
+            width: 100%;
+            padding: 0.5rem 0.75rem;
+            border: 1px solid #d1d5db;
+            border-radius: 6px;
+            font-size: 0.875rem;
+        }
+        
+        .form-group input:focus,
+        .form-group select:focus {
+            outline: none;
+            border-color: #2563eb;
+            box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.1);
+        }
+        
+        .form-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 1rem;
+        }
+        
+        .modal {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.5);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 1000;
+        }
+        
+        .modal-content {
+            background: white;
+            border-radius: 12px;
+            padding: 2rem;
+            max-width: 600px;
+            width: 90%;
+            max-height: 90vh;
+            overflow-y: auto;
+        }
+        
+        .modal-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 1.5rem;
+        }
+        
+        .modal-header h3 {
+            margin: 0;
+            color: #1f2937;
+        }
+        
+        .modal-actions {
+            display: flex;
+            gap: 0.5rem;
+            justify-content: flex-end;
+            margin-top: 1.5rem;
+        }
+        
+        .loading {
+            text-align: center;
+            padding: 3rem;
+            color: #6b7280;
+        }
+        
+        .empty-state {
+            text-align: center;
+            padding: 3rem;
+            color: #6b7280;
+        }
+        
+        .error-message {
+            background: #fee2e2;
+            color: #991b1b;
+            padding: 0.75rem;
+            border-radius: 6px;
+            margin-bottom: 1rem;
+            font-size: 0.875rem;
+        }
+
+        .example-rules {
+            background: #eff6ff;
+            border: 1px solid #bfdbfe;
+            border-radius: 8px;
+            padding: 1rem;
+            margin-top: 1rem;
+        }
+
+        .example-rules h4 {
+            color: #1e40af;
+            margin: 0 0 0.5rem 0;
+            font-size: 0.875rem;
+        }
+
+        .example-rules ul {
+            margin: 0;
+            padding-left: 1.25rem;
+            color: #1e40af;
+            font-size: 0.75rem;
+        }
+
+        .example-rules li {
+            margin-bottom: 0.25rem;
+        }
+        
+        @media (max-width: 768px) {
+            .rules-container {
+                padding: 1rem;
+            }
+            
+            .form-grid {
+                grid-template-columns: 1fr;
+            }
+            
+            .rule-details {
+                grid-template-columns: 1fr;
+            }
+            
+            .section-header {
+                flex-direction: column;
+                align-items: flex-start;
+                gap: 1rem;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div id="react-app"></div>
+    
+    <script>
+        const { useState, useEffect, createElement: h } = React;
+        
+        // Rule Form Component
+        const RuleForm = ({ rule, onClose, onSave, categories }) => {
+            const [formData, setFormData] = useState({
+                name: rule?.name || '',
+                condition_field: rule?.condition_field || 'description',
+                condition_operator: rule?.condition_operator || 'contains',
+                condition_value: rule?.condition_value || '',
+                action_type: rule?.action_type || 'categorize',
+                action_value: rule?.action_value || '',
+                active: rule?.active !== false
+            });
+            const [saving, setSaving] = useState(false);
+            const [errors, setErrors] = useState({});
+
+            const handleSubmit = async (e) => {
+                e.preventDefault();
+                setSaving(true);
+                setErrors({});
+                
+                try {
+                    const csrfToken = document.querySelector('meta[name="csrf-token"]')?.getAttribute('content');
+                    const url = rule ? `/api/v1/rules/${rule.id}` : '/api/v1/rules';
+                    const method = rule ? 'PATCH' : 'POST';
+                    
+                    const response = await fetch(url, {
+                        method: method,
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'X-CSRF-Token': csrfToken
+                        },
+                        body: JSON.stringify({ rule: formData })
+                    });
+
+                    if (response.ok) {
+                        const result = await response.json();
+                        onSave(result.rule);
+                        onClose();
+                    } else {
+                        const error = await response.json();
+                        setErrors(error.errors || {});
+                    }
+                } catch (error) {
+                    setErrors({ general: ['Network error: ' + error.message] });
+                } finally {
+                    setSaving(false);
+                }
+            };
+
+            const handleFieldChange = (field, value) => {
+                setFormData(prev => ({ ...prev, [field]: value }));
+                // Clear error when user starts typing
+                if (errors[field]) {
+                    setErrors(prev => ({ ...prev, [field]: null }));
+                }
+            };
+
+            const getConditionValuePlaceholder = () => {
+                switch (formData.condition_field) {
+                    case 'description':
+                        return formData.condition_operator === 'contains' 
+                            ? 'e.g., Amazon, Starbucks, Uber' 
+                            : 'e.g., Salary Payment';
+                    case 'amount':
+                        return 'e.g., 1000, 50.00';
+                    case 'transaction_date':
+                        return 'e.g., 2024-01-01';
+                    default:
+                        return '';
+                }
+            };
+
+            const getActionValuePlaceholder = () => {
+                return formData.action_type === 'categorize' 
+                    ? 'e.g., Shopping, Food & Dining' 
+                    : 'e.g., High Value, Needs Review';
+            };
+
+            return h('div', { className: 'modal', onClick: onClose },
+                h('div', { 
+                    className: 'modal-content', 
+                    onClick: e => e.stopPropagation() 
+                },
+                    h('div', { className: 'modal-header' },
+                        h('h3', null, rule ? 'Edit Rule' : 'Create New Rule'),
+                        h('button', { 
+                            className: 'btn btn-secondary',
+                            onClick: onClose 
+                        }, '×')
+                    ),
+                    
+                    errors.general && h('div', { className: 'error-message' }, errors.general.join(', ')),
+                    
+                    h('form', { onSubmit: handleSubmit },
+                        h('div', { className: 'form-group' },
+                            h('label', { htmlFor: 'rule-name' }, 'Rule Name'),
+                            h('input', {
+                                id: 'rule-name',
+                                type: 'text',
+                                value: formData.name,
+                                onChange: e => handleFieldChange('name', e.target.value),
+                                placeholder: 'e.g., Categorize Amazon purchases',
+                                required: true
+                            }),
+                            errors.name && h('div', { className: 'error-message' }, errors.name.join(', '))
+                        ),
+                        
+                        h('div', { className: 'form-grid' },
+                            h('div', { className: 'form-group' },
+                                h('label', { htmlFor: 'condition-field' }, 'If Field'),
+                                h('select', {
+                                    id: 'condition-field',
+                                    value: formData.condition_field,
+                                    onChange: e => handleFieldChange('condition_field', e.target.value)
+                                },
+                                    h('option', { value: 'description' }, 'Description'),
+                                    h('option', { value: 'amount' }, 'Amount'),
+                                    h('option', { value: 'transaction_date' }, 'Date')
+                                ),
+                                errors.condition_field && h('div', { className: 'error-message' }, errors.condition_field.join(', '))
+                            ),
+                            
+                            h('div', { className: 'form-group' },
+                                h('label', { htmlFor: 'condition-operator' }, 'Condition'),
+                                h('select', {
+                                    id: 'condition-operator',
+                                    value: formData.condition_operator,
+                                    onChange: e => handleFieldChange('condition_operator', e.target.value)
+                                },
+                                    h('option', { value: 'contains' }, 'Contains'),
+                                    h('option', { value: 'equals' }, 'Equals'),
+                                    h('option', { value: 'greater_than' }, 'Greater than'),
+                                    h('option', { value: 'less_than' }, 'Less than')
+                                ),
+                                errors.condition_operator && h('div', { className: 'error-message' }, errors.condition_operator.join(', '))
+                            )
+                        ),
+                        
+                        h('div', { className: 'form-group' },
+                            h('label', { htmlFor: 'condition-value' }, 'Value'),
+                            h('input', {
+                                id: 'condition-value',
+                                type: 'text',
+                                value: formData.condition_value,
+                                onChange: e => handleFieldChange('condition_value', e.target.value),
+                                placeholder: getConditionValuePlaceholder(),
+                                required: true
+                            }),
+                            errors.condition_value && h('div', { className: 'error-message' }, errors.condition_value.join(', '))
+                        ),
+                        
+                        h('div', { className: 'form-grid' },
+                            h('div', { className: 'form-group' },
+                                h('label', { htmlFor: 'action-type' }, 'Then Action'),
+                                h('select', {
+                                    id: 'action-type',
+                                    value: formData.action_type,
+                                    onChange: e => handleFieldChange('action_type', e.target.value)
+                                },
+                                    h('option', { value: 'categorize' }, 'Categorize as'),
+                                    h('option', { value: 'flag' }, 'Flag as')
+                                ),
+                                errors.action_type && h('div', { className: 'error-message' }, errors.action_type.join(', '))
+                            ),
+                            
+                            h('div', { className: 'form-group' },
+                                h('label', { htmlFor: 'action-value' }, 'Action Value'),
+                                h('input', {
+                                    id: 'action-value',
+                                    type: 'text',
+                                    value: formData.action_value,
+                                    onChange: e => handleFieldChange('action_value', e.target.value),
+                                    placeholder: getActionValuePlaceholder(),
+                                    required: true
+                                }),
+                                errors.action_value && h('div', { className: 'error-message' }, errors.action_value.join(', '))
+                            )
+                        ),
+                        
+                        h('div', { className: 'form-group' },
+                            h('label', null,
+                                h('input', {
+                                    type: 'checkbox',
+                                    checked: formData.active,
+                                    onChange: e => handleFieldChange('active', e.target.checked),
+                                    style: { marginRight: '0.5rem' }
+                                }),
+                                'Active (rule will be applied to new transactions)'
+                            )
+                        ),
+
+                        h('div', { className: 'example-rules' },
+                            h('h4', null, 'Example Rules:'),
+                            h('ul', null,
+                                h('li', null, 'Description contains "Amazon" → Categorize as "Shopping"'),
+                                h('li', null, 'Amount greater than 1000 → Flag as "High Value"'),
+                                h('li', null, 'Description contains "salary" → Categorize as "Income"')
+                            )
+                        )
+                    ),
+                    
+                    h('div', { className: 'modal-actions' },
+                        h('button', {
+                            type: 'button',
+                            className: 'btn btn-secondary',
+                            onClick: onClose,
+                            disabled: saving
+                        }, 'Cancel'),
+                        h('button', {
+                            type: 'submit',
+                            className: 'btn btn-primary',
+                            onClick: handleSubmit,
+                            disabled: saving
+                        }, saving ? 'Saving...' : (rule ? 'Update Rule' : 'Create Rule'))
+                    )
+                )
+            );
+        };
+        
+        // Main Rules Management Component
+        const RulesManagement = () => {
+            const [rules, setRules] = useState([]);
+            const [loading, setLoading] = useState(true);
+            const [editingRule, setEditingRule] = useState(null);
+            const [showForm, setShowForm] = useState(false);
+            const [categories, setCategories] = useState([]);
+
+            const loadRules = async () => {
+                try {
+                    setLoading(true);
+                    const response = await fetch('/api/v1/rules');
+                    if (response.ok) {
+                        const data = await response.json();
+                        setRules(data.rules || []);
+                    }
+                } catch (error) {
+                    console.error('Failed to load rules:', error);
+                } finally {
+                    setLoading(false);
+                }
+            };
+
+            const loadCategories = async () => {
+                try {
+                    const response = await fetch('/api/v1/categories');
+                    if (response.ok) {
+                        const data = await response.json();
+                        setCategories(data.categories || []);
+                    }
+                } catch (error) {
+                    console.error('Failed to load categories:', error);
+                }
+            };
+
+            useEffect(() => {
+                loadRules();
+                loadCategories();
+            }, []);
+
+            const handleSaveRule = (savedRule) => {
+                if (editingRule) {
+                    setRules(prev => prev.map(r => r.id === savedRule.id ? savedRule : r));
+                } else {
+                    setRules(prev => [savedRule, ...prev]);
+                }
+                setEditingRule(null);
+                setShowForm(false);
+            };
+
+            const handleDeleteRule = async (rule) => {
+                if (!confirm(`Delete rule "${rule.name}"? This action cannot be undone.`)) return;
+                
+                try {
+                    const csrfToken = document.querySelector('meta[name="csrf-token"]')?.getAttribute('content');
+                    const response = await fetch(`/api/v1/rules/${rule.id}`, {
+                        method: 'DELETE',
+                        headers: {
+                            'X-CSRF-Token': csrfToken
+                        }
+                    });
+
+                    if (response.ok) {
+                        setRules(prev => prev.filter(r => r.id !== rule.id));
+                    } else {
+                        alert('Error deleting rule');
+                    }
+                } catch (error) {
+                    alert('Network error: ' + error.message);
+                }
+            };
+
+            const handleToggleActive = async (rule) => {
+                try {
+                    const csrfToken = document.querySelector('meta[name="csrf-token"]')?.getAttribute('content');
+                    const response = await fetch(`/api/v1/rules/${rule.id}`, {
+                        method: 'PATCH',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'X-CSRF-Token': csrfToken
+                        },
+                        body: JSON.stringify({ 
+                            rule: { active: !rule.active } 
+                        })
+                    });
+
+                    if (response.ok) {
+                        const result = await response.json();
+                        setRules(prev => prev.map(r => r.id === rule.id ? result.rule : r));
+                    } else {
+                        alert('Error updating rule');
+                    }
+                } catch (error) {
+                    alert('Network error: ' + error.message);
+                }
+            };
+
+            const formatCondition = (rule) => {
+                const field = rule.condition_field.replace('_', ' ');
+                const operator = rule.condition_operator.replace('_', ' ');
+                return `${field} ${operator} "${rule.condition_value}"`;
+            };
+
+            const formatAction = (rule) => {
+                return `${rule.action_type} as "${rule.action_value}"`;
+            };
+
+            return h('div', { className: 'rules-container' },
+                h('a', { href: '/', className: 'back-link' }, '← Back to Dashboard'),
+                
+                h('div', { className: 'page-header' },
+                    h('h1', null, '⚙️ Rules Management'),
+                    h('p', null, 'Create and manage rules to automatically categorize and flag transactions')
+                ),
+
+                h('div', { className: 'rules-section' },
+                    h('div', { className: 'section-header' },
+                        h('h2', null, `Rules (${rules.length})`),
+                        h('button', {
+                            className: 'btn btn-primary',
+                            onClick: () => setShowForm(true)
+                        }, '+ Create Rule')
+                    ),
+
+                    loading ? h('div', { className: 'loading' }, 'Loading rules...') :
+                    rules.length === 0 ? h('div', { className: 'empty-state' }, 
+                        'No rules configured. Create your first rule to automate transaction processing!'
+                    ) :
+                    h('div', { className: 'rules-list' },
+                        rules.map(rule =>
+                            h('div', { 
+                                key: rule.id, 
+                                className: `rule-card ${rule.active ? '' : 'inactive'}` 
+                            },
+                                h('div', { className: 'rule-header' },
+                                    h('h3', { className: 'rule-name' }, rule.name),
+                                    h('span', { 
+                                        className: `rule-status ${rule.active ? 'status-active' : 'status-inactive'}` 
+                                    }, rule.active ? 'Active' : 'Inactive')
+                                ),
+                                
+                                h('div', { className: 'rule-description' },
+                                    `If ${formatCondition(rule)}, then ${formatAction(rule)}`
+                                ),
+                                
+                                h('div', { className: 'rule-details' },
+                                    h('div', { className: 'rule-detail' },
+                                        h('div', { className: 'rule-detail-label' }, 'Condition'),
+                                        h('div', { className: 'rule-detail-value' }, formatCondition(rule))
+                                    ),
+                                    h('div', { className: 'rule-detail' },
+                                        h('div', { className: 'rule-detail-label' }, 'Action'),
+                                        h('div', { className: 'rule-detail-value' }, formatAction(rule))
+                                    )
+                                ),
+                                
+                                h('div', { className: 'rule-actions' },
+                                    h('button', {
+                                        className: `btn ${rule.active ? 'btn-secondary' : 'btn-success'}`,
+                                        onClick: () => handleToggleActive(rule)
+                                    }, rule.active ? 'Deactivate' : 'Activate'),
+                                    h('button', {
+                                        className: 'btn btn-secondary',
+                                        onClick: () => {
+                                            setEditingRule(rule);
+                                            setShowForm(true);
+                                        }
+                                    }, 'Edit'),
+                                    h('button', {
+                                        className: 'btn btn-danger',
+                                        onClick: () => handleDeleteRule(rule)
+                                    }, 'Delete')
+                                )
+                            )
+                        )
+                    )
+                ),
+
+                (showForm || editingRule) && h(RuleForm, {
+                    rule: editingRule,
+                    onClose: () => {
+                        setShowForm(false);
+                        setEditingRule(null);
+                    },
+                    onSave: handleSaveRule,
+                    categories: categories
+                })
+            );
+        };
+
+        // Render the app
+        ReactDOM.render(h(RulesManagement), document.getElementById('react-app'));
+    </script>
+</body>
+</html>

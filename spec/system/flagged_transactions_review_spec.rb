@@ -5,15 +5,15 @@ RSpec.describe 'Flagged Transactions Review', type: :system do
     driven_by(:selenium_chrome_headless)
     # Ensure completely clean database state and clear caches
     Rails.cache.clear
-    
+
     # Clean up any remaining data to prevent test contamination
     AnomalyDetection.delete_all
     Transaction.delete_all
     Category.delete_all
-    
+
     # Force creation of test data before each test to ensure it's available to the browser
     setup_test_data
-    
+
     # Create anomalies for transactions to make them appear in the review page
     @unusual_amount_anomaly = create(:anomaly_detection,
       transaction_record: @flagged_transaction,
@@ -36,7 +36,7 @@ RSpec.describe 'Flagged Transactions Review', type: :system do
       description: 'Potential duplicate transaction detected'
     )
   end
-  
+
   def setup_test_data
     @category = create(:category, name: 'Food & Dining')
     @transport_category = create(:category, name: 'Transportation')
@@ -198,7 +198,7 @@ RSpec.describe 'Flagged Transactions Review', type: :system do
         # The flagged transaction should now be rejected and removed from the flagged view
         expect(page).to have_content('Flagged Transactions (0)')
         expect(page).to have_content('🎉 No flagged transactions found!')
-        
+
         # Verify the transaction status changed to rejected
         @flagged_transaction.reload
         expect(@flagged_transaction.status).to eq('rejected')
@@ -809,14 +809,14 @@ RSpec.describe 'Flagged Transactions Review', type: :system do
         status: 'flagged',
         category: @category
       )
-      
+
       @third_flagged = create(:transaction,
-        description: 'Third flagged transaction', 
+        description: 'Third flagged transaction',
         amount: 2500.00,
         status: 'flagged',
         category: @transport_category
       )
-      
+
       # Create anomalies for the new transactions
       create(:anomaly_detection,
         transaction_record: @second_flagged,
@@ -824,7 +824,7 @@ RSpec.describe 'Flagged Transactions Review', type: :system do
         severity: 3,
         description: 'Moderately high amount'
       )
-      
+
       create(:anomaly_detection,
         transaction_record: @third_flagged,
         anomaly_type: 'unusual_amount',
@@ -896,17 +896,17 @@ RSpec.describe 'Flagged Transactions Review', type: :system do
       # Select specific transactions by their description
       suspicious_transaction = find('.transaction-card', text: 'Suspicious large purchase')
       second_transaction = find('.transaction-card', text: 'Second flagged transaction')
-      
+
       within(suspicious_transaction) do
         find('.transaction-checkbox').click
       end
-      
+
       within(second_transaction) do
         find('.transaction-checkbox').click
       end
 
       expect(page).to have_content('Select All (2 selected)')
-      
+
       # Select a category from the dropdown
       within('.bulk-category-assign') do
         expect(page).to have_content('Assign Category to Selected:')
@@ -914,16 +914,16 @@ RSpec.describe 'Flagged Transactions Review', type: :system do
           select 'Food & Dining', from: 'bulk-category-select'
         end
       end
-      
+
       sleep(3)
 
       # Should show success message and clear selection
       expect(page).to have_content('Select All (0 selected)')
-      
+
       # Verify the selected transactions now show Food & Dining category
       suspicious_card_text = find('.transaction-card', text: 'Suspicious large purchase').text
       second_card_text = find('.transaction-card', text: 'Second flagged transaction').text
-      
+
       expect(suspicious_card_text).to include('Food & Dining')
       expect(second_card_text).to include('Food & Dining')
     end
@@ -954,7 +954,7 @@ RSpec.describe 'Flagged Transactions Review', type: :system do
           select 'Transportation', from: 'bulk-category-select'
         end
       end
-      
+
       sleep(3)
 
       # Selection should be cleared

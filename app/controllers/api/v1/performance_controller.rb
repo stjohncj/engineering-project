@@ -90,7 +90,7 @@ class Api::V1::PerformanceController < ApplicationController
     if gc_stats[:heap_live_slots] && gc_stats[:heap_allocated_slots]
       # Use allocated slots as a proxy for memory usage
       memory_mb = (gc_stats[:heap_allocated_slots] * 40 / 1024.0 / 1024.0).round(2)
-      [memory_mb, 1.0].max # Minimum 1MB
+      [ memory_mb, 1.0 ].max # Minimum 1MB
     else
       1.0 # Default fallback
     end

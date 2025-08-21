@@ -122,9 +122,9 @@ RSpec.describe Rule, type: :model do
 
       it 'sets the status to flagged and creates anomaly detection' do
         transaction = create(:transaction, amount: 1500.0)
-        
-        expect { rule.apply_to!(transaction) }.to change { 
-          AnomalyDetection.count 
+
+        expect { rule.apply_to!(transaction) }.to change {
+          AnomalyDetection.count
         }.by(1)
 
         expect(transaction.reload.status).to eq('flagged')

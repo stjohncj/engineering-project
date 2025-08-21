@@ -70,7 +70,7 @@ RSpec.describe AnomalyDetectionService do
       it 'detects exact duplicates' do
         # Ensure original transaction exists first
         original_transaction
-        
+
         duplicate_transaction = create(:transaction,
                                      description: 'Daily Grocery Store Purchase Main Building Good Item Order Final',
                                      amount: 85.50,
@@ -87,7 +87,7 @@ RSpec.describe AnomalyDetectionService do
       it 'detects similar descriptions with same amount' do
         # Ensure original transaction exists first
         original_transaction
-        
+
         similar_transaction = create(:transaction,
                                    description: 'Daily Grocery Store Purchase Main Building Good Item Order Done',
                                    amount: 85.50,
@@ -172,7 +172,7 @@ RSpec.describe AnomalyDetectionService do
         anomalies = AnomalyDetectionService.new(large_anomaly_transaction).detect_and_flag
 
         unusual_amount_anomaly = anomalies.find { |a| a.anomaly_type == 'unusual_amount' }
-        
+
         # Should detect unusual amount and assign appropriate severity
         expect(unusual_amount_anomaly).to be_present
         expect(unusual_amount_anomaly.severity).to be_between(3, 5)
@@ -277,6 +277,240 @@ RSpec.describe AnomalyDetectionService do
         anomaly = AnomalyDetection.last
         expect(anomaly.transaction).to eq(test_transaction)
         expect(anomaly.detected_at).to be_within(1.second).of(Time.current)
+      end
+    end
+  end
+
+  describe 'rule execution' do
+    let(:category) { create(:category, name: 'Food & Dining') }
+    let(:shopping_category) { create(:category, name: 'Shopping') }
+
+    context 'categorization rules' do
+      it 'applies categorization rules to matching transactions' do
+        # Create a rule that categorizes Amazon purchases as Shopping
+        rule = create(:rule,
+          name: 'Amazon Shopping Rule',
+          condition_field: 'description',
+          condition_operator: 'contains',
+          condition_value: 'Amazon',
+          action_type: 'categorize',
+          action_value: 'Shopping',
+          active: true
+        )
+
+        # Create a transaction that should match the rule
+        transaction = create(:transaction,
+          description: 'Amazon Prime Subscription',
+          amount: 15.99,
+          category: category # Start with different category
+        )
+
+        # Run anomaly detection which includes rule application
+        service = AnomalyDetectionService.new(transaction)
+        service.detect_and_flag
+
+        # Verify the rule was applied
+        transaction.reload
+        expect(transaction.category.name).to eq('Shopping')
+      end
+
+      it 'creates categories if they do not exist' do
+        rule = create(:rule,
+          name: 'Starbucks Coffee Rule',
+          condition_field: 'description',
+          condition_operator: 'contains',
+          condition_value: 'Starbucks',
+          action_type: 'categorize',
+          action_value: 'Coffee & Drinks',
+          active: true
+        )
+
+        transaction = create(:transaction,
+          description: 'Starbucks Coffee Purchase',
+          amount: 5.50,
+          category: category
+        )
+
+        # Should create the new category
+        expect {
+          AnomalyDetectionService.new(transaction).detect_and_flag
+        }.to change(Category, :count).by(1)
+
+        transaction.reload
+        expect(transaction.category.name).to eq('Coffee & Drinks')
+      end
+
+      it 'applies amount-based categorization rules' do
+        rule = create(:rule,
+          name: 'High Value Purchase Rule',
+          condition_field: 'amount',
+          condition_operator: 'greater_than',
+          condition_value: '1000',
+          action_type: 'categorize',
+          action_value: 'High Value Purchases',
+          active: true
+        )
+
+        transaction = create(:transaction,
+          description: 'Expensive laptop',
+          amount: 1500.00,
+          category: category
+        )
+
+        AnomalyDetectionService.new(transaction).detect_and_flag
+
+        transaction.reload
+        expect(transaction.category.name).to eq('High Value Purchases')
+      end
+    end
+
+    context 'flagging rules' do
+      it 'applies flagging rules and creates anomaly records' do
+        rule = create(:rule,
+          name: 'Large Transaction Flag',
+          condition_field: 'amount',
+          condition_operator: 'greater_than',
+          condition_value: '1000',
+          action_type: 'flag',
+          action_value: 'High Value',
+          active: true
+        )
+
+        transaction = create(:transaction,
+          description: 'Large purchase',
+          amount: 1500.00,
+          category: category,
+          status: 'pending'
+        )
+
+        expect {
+          AnomalyDetectionService.new(transaction).detect_and_flag
+        }.to change(AnomalyDetection, :count).by(1)
+
+        transaction.reload
+        expect(transaction.status).to eq('flagged')
+
+        # Check the rule-based anomaly was created
+        rule_anomaly = transaction.anomaly_detections.find_by(anomaly_type: 'rule_based')
+        expect(rule_anomaly).to be_present
+        expect(rule_anomaly.description).to include('Large Transaction Flag')
+        expect(rule_anomaly.severity).to eq(2)
+      end
+
+      it 'applies multiple rules if they all match' do
+        # Create multiple rules that could apply
+        categorization_rule = create(:rule,
+          name: 'Amazon Categorization',
+          condition_field: 'description',
+          condition_operator: 'contains',
+          condition_value: 'Amazon',
+          action_type: 'categorize',
+          action_value: 'Shopping',
+          active: true
+        )
+
+        flagging_rule = create(:rule,
+          name: 'High Value Flag',
+          condition_field: 'amount',
+          condition_operator: 'greater_than',
+          condition_value: '100',
+          action_type: 'flag',
+          action_value: 'High Value',
+          active: true
+        )
+
+        transaction = create(:transaction,
+          description: 'Amazon expensive item',
+          amount: 250.00,
+          category: category,
+          status: 'pending'
+        )
+
+        AnomalyDetectionService.new(transaction).detect_and_flag
+
+        transaction.reload
+        expect(transaction.category.name).to eq('Shopping') # Categorization rule applied
+        expect(transaction.status).to eq('flagged') # Flagging rule applied
+      end
+    end
+
+    context 'inactive rules' do
+      it 'does not apply inactive rules' do
+        rule = create(:rule,
+          name: 'Inactive Rule',
+          condition_field: 'description',
+          condition_operator: 'contains',
+          condition_value: 'Amazon',
+          action_type: 'categorize',
+          action_value: 'Shopping',
+          active: false # Inactive rule
+        )
+
+        transaction = create(:transaction,
+          description: 'Amazon purchase',
+          amount: 50.00,
+          category: category
+        )
+
+        AnomalyDetectionService.new(transaction).detect_and_flag
+
+        transaction.reload
+        expect(transaction.category.name).to eq('Food & Dining') # Should remain unchanged
+      end
+    end
+
+    context 'rule error handling' do
+      it 'continues processing other rules if one rule fails' do
+        # Create a valid rule that should work
+        good_rule = create(:rule,
+          name: 'Good Rule',
+          condition_field: 'description',
+          condition_operator: 'contains',
+          condition_value: 'test',
+          action_type: 'categorize',
+          action_value: 'Test Category',
+          active: true
+        )
+
+        transaction = create(:transaction,
+          description: 'test purchase',
+          amount: 25.00,
+          category: category,
+          status: 'pending'
+        )
+
+        # Mock the specific rule to fail but allow the service to continue
+        allow(good_rule).to receive(:apply_to!).and_raise(StandardError, "Rule failed")
+
+        # Should not raise an error even if one rule fails
+        expect {
+          AnomalyDetectionService.new(transaction).detect_and_flag
+        }.not_to raise_error
+      end
+
+      it 'logs errors when rules fail' do
+        rule = create(:rule,
+          name: 'Failing Rule',
+          condition_field: 'description',
+          condition_operator: 'contains',
+          condition_value: 'test',
+          action_type: 'categorize',
+          action_value: 'Test Category',
+          active: true
+        )
+
+        transaction = create(:transaction,
+          description: 'test purchase',
+          amount: 25.00,
+          category: category
+        )
+
+        # Mock the rule to fail
+        allow_any_instance_of(Rule).to receive(:apply_to!).and_raise(StandardError, "Mock failure")
+
+        expect(Rails.logger).to receive(:error).with(/Failed to apply rule/)
+
+        AnomalyDetectionService.new(transaction).detect_and_flag
       end
     end
   end

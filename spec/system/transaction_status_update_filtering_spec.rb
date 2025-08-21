@@ -5,15 +5,15 @@ RSpec.describe 'Transaction Status Update Filtering', type: :system, js: true do
     driven_by(:selenium_chrome_headless)
     # Ensure completely clean database state and clear caches
     Rails.cache.clear
-    
+
     # Clean up any remaining data to prevent test contamination
     AnomalyDetection.delete_all
     Transaction.delete_all
     Category.delete_all
-    
+
     # Force creation of test data before each test to ensure it's available to the browser
     setup_test_data
-    
+
     # Create anomalies for flagged transactions to make them appear in the review page
     @anomaly_1 = create(:anomaly_detection,
       transaction_record: @flagged_transaction_1,
@@ -21,7 +21,7 @@ RSpec.describe 'Transaction Status Update Filtering', type: :system, js: true do
       severity: 4,
       description: 'Unusually high amount'
     )
-    
+
     @anomaly_2 = create(:anomaly_detection,
       transaction_record: @flagged_transaction_2,
       anomaly_type: 'duplicate_transaction',
@@ -29,11 +29,11 @@ RSpec.describe 'Transaction Status Update Filtering', type: :system, js: true do
       description: 'Potential duplicate'
     )
   end
-  
+
   def setup_test_data
     @category = create(:category, name: 'Food & Dining')
     @transport_category = create(:category, name: 'Transportation')
-    
+
     # Create transactions that will be available to the browser session
     @flagged_transaction_1 = create(:transaction,
       description: 'First flagged transaction',
@@ -42,7 +42,7 @@ RSpec.describe 'Transaction Status Update Filtering', type: :system, js: true do
       category: @category,
       transaction_date: 1.day.ago
     )
-    
+
     @flagged_transaction_2 = create(:transaction,
       description: 'Second flagged transaction',
       amount: 2000.00,
@@ -50,7 +50,7 @@ RSpec.describe 'Transaction Status Update Filtering', type: :system, js: true do
       category: @category,
       transaction_date: 2.days.ago
     )
-    
+
     @flagged_transaction_3 = create(:transaction,
       description: 'Third flagged transaction',
       amount: 3000.00,
@@ -58,7 +58,7 @@ RSpec.describe 'Transaction Status Update Filtering', type: :system, js: true do
       category: @transport_category,
       transaction_date: 3.days.ago
     )
-    
+
     @pending_transaction = create(:transaction,
       description: 'Pending transaction',
       amount: 500.00,
@@ -66,7 +66,7 @@ RSpec.describe 'Transaction Status Update Filtering', type: :system, js: true do
       category: @category,
       transaction_date: 4.days.ago
     )
-    
+
     @approved_transaction = create(:transaction,
       description: 'Already approved transaction',
       amount: 750.00,
@@ -84,12 +84,12 @@ RSpec.describe 'Transaction Status Update Filtering', type: :system, js: true do
 
       # Verify we're viewing flagged transactions
       expect(page).to have_content('🚨 Review Flagged Transactions')
-      
+
       # Verify all three flagged transactions are visible
       expect(page).to have_content('First flagged transaction')
       expect(page).to have_content('Second flagged transaction')
       expect(page).to have_content('Third flagged transaction')
-      
+
       # Should not show pending or approved transactions
       expect(page).not_to have_content('Pending transaction')
       expect(page).not_to have_content('Already approved transaction')
@@ -111,7 +111,7 @@ RSpec.describe 'Transaction Status Update Filtering', type: :system, js: true do
 
       # Verify the approved transaction is no longer visible
       expect(page).not_to have_content('First flagged transaction')
-      
+
       # Verify other flagged transactions are still visible
       expect(page).to have_content('Second flagged transaction')
       expect(page).to have_content('Third flagged transaction')
@@ -127,7 +127,7 @@ RSpec.describe 'Transaction Status Update Filtering', type: :system, js: true do
 
     it 'removes rejected transaction from view immediately', js: true do
       skip "Test isolation issue - works individually but fails in suite due to transaction state persistence between tests"
-      
+
       visit '/review'
       sleep(2)
 
@@ -146,7 +146,7 @@ RSpec.describe 'Transaction Status Update Filtering', type: :system, js: true do
 
       # Verify the rejected transaction is no longer visible
       expect(page).not_to have_content('Second flagged transaction')
-      
+
       # Verify count decreased
       updated_count = all('.transaction-card').count
       expect(updated_count).to eq(initial_count - 1)
@@ -213,7 +213,7 @@ RSpec.describe 'Transaction Status Update Filtering', type: :system, js: true do
 
       # Verify the transaction is no longer visible
       expect(page).not_to have_content('First flagged transaction')
-      
+
       # Verify count decreased
       updated_count = all('.transaction-card').count
       expect(updated_count).to eq(initial_count - 1)
@@ -265,10 +265,10 @@ RSpec.describe 'Transaction Status Update Filtering', type: :system, js: true do
 
       # Find transaction with anomaly
       transaction_card = all('.transaction-card').find { |card| card.has_content?('First flagged transaction') }
-      
+
       within(transaction_card) do
         expect(page).to have_content('⚠️ Anomalies Detected')
-        
+
         # Resolve the anomaly
         within('.anomaly-item') do
           click_button '✓ Resolve'
@@ -279,7 +279,7 @@ RSpec.describe 'Transaction Status Update Filtering', type: :system, js: true do
 
       # Transaction should still be visible if it's still flagged
       expect(page).to have_content('First flagged transaction')
-      
+
       # But anomaly should be resolved
       transaction_card = all('.transaction-card').find { |card| card.has_content?('First flagged transaction') }
       within(transaction_card) do
@@ -336,7 +336,7 @@ RSpec.describe 'Transaction Status Update Filtering', type: :system, js: true do
 
       # Measure time for UI update
       start_time = Time.now
-      
+
       transaction_card = all('.transaction-card').find { |card| card.has_content?('First flagged transaction') }
       within(transaction_card) do
         accept_confirm do
@@ -346,7 +346,7 @@ RSpec.describe 'Transaction Status Update Filtering', type: :system, js: true do
 
       # Check that transaction disappears quickly (within 500ms)
       expect(page).not_to have_content('First flagged transaction', wait: 0.5)
-      
+
       end_time = Time.now
       expect(end_time - start_time).to be < 1.0 # Should be nearly instant
     end

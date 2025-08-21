@@ -5,17 +5,17 @@ RSpec.describe 'Category Management', type: :system do
     driven_by(:selenium_chrome_headless)
     # Ensure completely clean database state and clear caches
     Rails.cache.clear
-    
+
     # Clean up any remaining data to prevent test contamination
     AnomalyDetection.delete_all
     Rule.delete_all
     Transaction.delete_all
     Category.delete_all
-    
+
     # Force creation of test data before each test to ensure it's available to the browser
     setup_test_data
   end
-  
+
   def setup_test_data
     @category = create(:category, name: 'Food & Dining', description: 'Restaurants and groceries', color: '#FF6B6B')
     @other_category = create(:category, name: 'Transportation', description: 'Gas and public transport', color: '#4ECDC4')
@@ -43,10 +43,10 @@ RSpec.describe 'Category Management', type: :system do
     end
 
     it 'displays uncategorized label for transactions without category', js: true do
-      # Skip this test as it's testing a specific edge case that's difficult to 
+      # Skip this test as it's testing a specific edge case that's difficult to
       # reproduce reliably in system tests due to caching and transaction ordering
       skip "Difficult to test reliably due to API caching and transaction ordering"
-      
+
       # The dashboard correctly handles uncategorized transactions with this logic:
       # `${formatDate(transaction.transaction_date)} • ${transaction.category || 'Uncategorized'}`
       # This has been verified in the dashboard code and unit tests would be more appropriate

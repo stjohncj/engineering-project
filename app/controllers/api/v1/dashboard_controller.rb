@@ -98,7 +98,7 @@ class Api::V1::DashboardController < ApplicationController
       status: transaction.status,
       category: transaction.category&.name,
       anomaly_count: transaction.anomaly_detections.count,
-      anomalies: transaction.anomaly_detections.unresolved.map { |a| 
+      anomalies: transaction.anomaly_detections.unresolved.map { |a|
         {
           id: a.id,
           type: a.anomaly_type,

@@ -77,7 +77,7 @@ RSpec.configure do |config|
   config.before(:each, type: :system) do
     driven_by :selenium_chrome_headless
   end
-  
+
   # Disable transactional fixtures for system tests since the browser and test
   # run in separate processes/threads and can't share transactional data
   config.around(:each, type: :system) do |example|
@@ -87,11 +87,13 @@ RSpec.configure do |config|
     AnomalyDetection.delete_all
     Transaction.delete_all
     Category.delete_all
+    Rule.delete_all
     example.run
     # Clean up after test
     AnomalyDetection.delete_all
     Transaction.delete_all
     Category.delete_all
+    Rule.delete_all
     self.use_transactional_tests = true
   end
 end

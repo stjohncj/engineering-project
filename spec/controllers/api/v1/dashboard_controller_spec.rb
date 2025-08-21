@@ -9,7 +9,7 @@ RSpec.describe Api::V1::DashboardController, type: :controller do
     # Clear cache before each test
     Rails.cache.clear
     # Clean up any existing test data to ensure isolation
-    Transaction.where.not(id: [transactions.map(&:id)].flatten).delete_all
+    Transaction.where.not(id: [ transactions.map(&:id) ].flatten).delete_all
   end
 
   describe 'GET #statistics' do
@@ -92,7 +92,7 @@ RSpec.describe Api::V1::DashboardController, type: :controller do
       # Clear existing data and create transactions with specific timestamps
       AnomalyDetection.delete_all
       Transaction.delete_all
-      
+
       old_transaction = create(:transaction, category: category, created_at: 2.hours.ago)
       new_transaction = create(:transaction, category: category, created_at: 1.hour.ago)
 

@@ -7,4 +7,7 @@ class DashboardController < ApplicationController
 
   def review
   end
+
+  def rules
+  end
 end

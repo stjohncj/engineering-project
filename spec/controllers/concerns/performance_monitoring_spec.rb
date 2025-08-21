@@ -66,7 +66,7 @@ RSpec.describe PerformanceMonitoring, type: :controller do
           ip: kind_of(String),
           method: 'GET',
           path: '/fast_action',
-          cache_hit: be_in([true, false])
+          cache_hit: be_in([ true, false ])
         }
 
         allow(Rails.logger).to receive(:info).and_call_original

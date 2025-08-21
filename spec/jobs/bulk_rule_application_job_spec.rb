@@ -18,7 +18,7 @@ RSpec.describe BulkRuleApplicationJob, type: :job do
 
     it 'applies active rules to all specified transactions' do
       # Check that the job loads the correct rules and transactions
-      expect(Rule).to receive(:active).and_return([active_rule])
+      expect(Rule).to receive(:active).and_return([ active_rule ])
       expect(Transaction).to receive(:includes).with(:category).and_return(double(where: transactions))
       expect(active_rule).to receive(:apply_to!).exactly(3).times
 
@@ -31,7 +31,7 @@ RSpec.describe BulkRuleApplicationJob, type: :job do
       all_transaction_ids = transaction_ids + additional_transactions.map(&:id)
       all_transactions = transactions + additional_transactions
 
-      expect(Rule).to receive(:active).and_return([active_rule])
+      expect(Rule).to receive(:active).and_return([ active_rule ])
       expect(Transaction).to receive(:includes).with(:category).and_return(double(where: all_transactions))
       expect(active_rule).to receive(:apply_to!).exactly(8).times # 3 + 5 transactions
 
@@ -57,7 +57,7 @@ RSpec.describe BulkRuleApplicationJob, type: :job do
       let(:rule_ids) { [ active_rule.id ] }
 
       it 'only applies the specified rules' do
-        expect(Rule).to receive(:active).and_return(double(where: [active_rule]))
+        expect(Rule).to receive(:active).and_return(double(where: [ active_rule ]))
         expect(Transaction).to receive(:includes).with(:category).and_return(double(where: transactions))
         expect(active_rule).to receive(:apply_to!).exactly(3).times
 
@@ -72,7 +72,7 @@ RSpec.describe BulkRuleApplicationJob, type: :job do
       end
 
       it 'logs the error and continues with other transactions' do
-        expect(Rule).to receive(:active).and_return([active_rule])
+        expect(Rule).to receive(:active).and_return([ active_rule ])
         expect(Transaction).to receive(:includes).with(:category).and_return(double(where: transactions))
         expect(Rails.logger).to receive(:error).exactly(3).times do |message|
           expect(message).to match(/Failed to apply rule #{active_rule.id} to transaction \d+: Rule application failed/)

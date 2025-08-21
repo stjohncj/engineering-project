@@ -5,17 +5,17 @@ RSpec.describe 'Anomaly Detection', type: :system do
     driven_by(:selenium_chrome_headless)
     # Ensure completely clean database state and clear caches
     Rails.cache.clear
-    
+
     # Clean up any remaining data to prevent test contamination
     AnomalyDetection.delete_all
     Rule.delete_all
     Transaction.delete_all
     Category.delete_all
-    
+
     # Force creation of test data before each test to ensure it's available to the browser
     setup_test_data
   end
-  
+
   def setup_test_data
     @category = create(:category, name: 'Food & Dining')
     @normal_transaction = create(:transaction, category: @category, amount: 25.00)
@@ -93,7 +93,7 @@ RSpec.describe 'Anomaly Detection', type: :system do
         # Verify we're showing transaction IDs for anomalies
         # Since we have anomalies, we should see "Transaction ID:" text
         expect(page).to have_content("Transaction ID:")
-        
+
         # The specific ID may vary due to test order, but it should be present
         # and match one of our created anomalies
         transaction_ids = page.all(:xpath, ".//small[contains(text(),'Transaction ID:')]").map(&:text)

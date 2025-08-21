@@ -8,6 +8,7 @@ class AnomalyDetectionService
     detect_unusual_amount
     detect_potential_duplicates
     detect_incomplete_metadata
+    apply_active_rules
 
     create_anomaly_records
   end
@@ -113,6 +114,18 @@ class AnomalyDetectionService
         severity: 2,
         description: "Incomplete transaction data: #{issues.join(', ')}"
       }
+    end
+  end
+
+  def apply_active_rules
+    # Get all active rules and apply them to the transaction
+    Rule.active.each do |rule|
+      begin
+        rule.apply_to!(@transaction)
+      rescue => e
+        Rails.logger.error "Failed to apply rule #{rule.id} (#{rule.name}) to transaction #{@transaction.id}: #{e.message}"
+        # Continue with other rules even if one fails
+      end
     end
   end
 
