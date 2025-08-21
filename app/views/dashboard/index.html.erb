@@ -105,6 +105,24 @@
             font-size: 0.75rem;
         }
         
+        .action-btn.categories {
+            background: #10b981;
+            color: white;
+        }
+        
+        .action-btn.categories:hover {
+            background: #059669;
+        }
+        
+        .action-btn.rules {
+            background: #8b5cf6;
+            color: white;
+        }
+        
+        .action-btn.rules:hover {
+            background: #7c3aed;
+        }
+        
         .spending-summary {
             background: white;
             border-radius: 12px;
@@ -673,7 +691,8 @@
                             h('div', { className: 'action-buttons' },
                                 h('a', { href: '/upload', className: 'action-btn primary' }, '📁 Import CSV Transactions'),
                                 h('a', { href: '/review', className: 'action-btn warning' }, '🚨 Review Flagged Transactions'),
-                                h('a', { href: '/rules', className: 'action-btn info' }, '⚙️ Manage Rules'),
+                                h('a', { href: '/rules', className: 'action-btn rules' }, '⚙️ Manage Rules'),
+                                h('a', { href: '/categories', className: 'action-btn categories' }, '📂 Manage Categories'),
                                 h('button', { onClick: refreshDashboard, className: 'action-btn secondary' }, '🔄 Refresh Dashboard')
                             )
                         ),

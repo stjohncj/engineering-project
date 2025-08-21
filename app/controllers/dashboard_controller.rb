@@ -10,4 +10,7 @@ class DashboardController < ApplicationController
 
   def rules
   end
+
+  def categories
+  end
 end

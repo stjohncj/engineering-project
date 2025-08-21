@@ -1,0 +1,602 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Manage Categories - Bookkeeping System</title>
+    <%= csrf_meta_tags %>
+    <%= csp_meta_tag %>
+    <%= stylesheet_link_tag "application", "data-turbo-track": "reload" %>
+    
+    <!-- React from CDN -->
+    <script crossorigin src="https://unpkg.com/react@18/umd/react.development.js"></script>
+    <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.development.js"></script>
+    
+    <style>
+        body {
+            margin: 0;
+            padding: 0;
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: #f8fafc;
+        }
+        
+        .categories-container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 2rem;
+        }
+        
+        .page-header {
+            text-align: center;
+            margin: 0 1.5rem 2rem 1.5rem;
+            padding: 1rem 1.5rem;
+        }
+        
+        .page-header h1 {
+            color: #1f2937;
+            margin-bottom: 0.5rem;
+            font-size: 2.5rem;
+        }
+        
+        .page-header p {
+            color: #6b7280;
+            font-size: 1.125rem;
+        }
+        
+        .back-link {
+            display: inline-flex;
+            align-items: center;
+            color: #2563eb;
+            text-decoration: none;
+            font-weight: 500;
+            margin-bottom: 2rem;
+            transition: color 0.2s;
+        }
+        
+        .back-link:hover {
+            color: #1d4ed8;
+        }
+        
+        .categories-section {
+            background: white;
+            border-radius: 12px;
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+            overflow: hidden;
+            margin-bottom: 2rem;
+        }
+        
+        .section-header {
+            background: #f9fafb;
+            padding: 1.5rem;
+            border-bottom: 1px solid #e5e7eb;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        
+        .section-header h2 {
+            margin: 0;
+            color: #374151;
+        }
+        
+        .add-category-btn {
+            background: #10b981;
+            color: white;
+            border: none;
+            padding: 0.75rem 1.5rem;
+            border-radius: 8px;
+            cursor: pointer;
+            font-weight: 500;
+            transition: background-color 0.2s;
+        }
+        
+        .add-category-btn:hover {
+            background: #059669;
+        }
+        
+        .category-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 1.5rem;
+            border-bottom: 1px solid #f3f4f6;
+            transition: background-color 0.2s;
+        }
+        
+        .category-item:hover {
+            background: #f9fafb;
+        }
+        
+        .category-item:last-child {
+            border-bottom: none;
+        }
+        
+        .category-info {
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+        }
+        
+        .category-color {
+            width: 24px;
+            height: 24px;
+            border-radius: 50%;
+            border: 2px solid #e5e7eb;
+        }
+        
+        .category-details {
+            display: flex;
+            flex-direction: column;
+            gap: 0.25rem;
+        }
+        
+        .category-name {
+            font-weight: 600;
+            color: #374151;
+            font-size: 1.125rem;
+        }
+        
+        .category-meta {
+            color: #6b7280;
+            font-size: 0.875rem;
+        }
+        
+        .category-actions {
+            display: flex;
+            gap: 0.5rem;
+        }
+        
+        .btn {
+            padding: 0.5rem 1rem;
+            border: none;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 0.875rem;
+            font-weight: 500;
+            transition: all 0.2s;
+        }
+        
+        .btn-edit {
+            background: #3b82f6;
+            color: white;
+        }
+        
+        .btn-edit:hover {
+            background: #2563eb;
+        }
+        
+        .btn-delete {
+            background: #ef4444;
+            color: white;
+        }
+        
+        .btn-delete:hover {
+            background: #dc2626;
+        }
+        
+        .modal {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(0, 0, 0, 0.5);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 1000;
+        }
+        
+        .modal-content {
+            background: white;
+            border-radius: 12px;
+            padding: 2rem;
+            max-width: 500px;
+            width: 90%;
+            max-height: 80vh;
+            overflow-y: auto;
+        }
+        
+        .modal h3 {
+            margin: 0 0 1.5rem 0;
+            color: #111827;
+        }
+        
+        .form-group {
+            margin-bottom: 1.5rem;
+        }
+        
+        .form-group label {
+            display: block;
+            font-weight: 500;
+            color: #374151;
+            margin-bottom: 0.5rem;
+        }
+        
+        .form-group input {
+            width: 100%;
+            padding: 0.75rem;
+            border: 1px solid #d1d5db;
+            border-radius: 6px;
+            font-size: 1rem;
+            box-sizing: border-box;
+        }
+        
+        .form-group input:focus {
+            outline: none;
+            border-color: #3b82f6;
+            box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+        }
+        
+        .color-input-group {
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+        }
+        
+        .color-input {
+            flex: 1;
+        }
+        
+        .color-preview {
+            width: 40px;
+            height: 40px;
+            border-radius: 8px;
+            border: 2px solid #e5e7eb;
+            transition: all 0.2s;
+        }
+        
+        .modal-actions {
+            display: flex;
+            gap: 0.75rem;
+            justify-content: flex-end;
+            margin-top: 2rem;
+        }
+        
+        .btn-primary {
+            background: #3b82f6;
+            color: white;
+        }
+        
+        .btn-primary:hover {
+            background: #2563eb;
+        }
+        
+        .btn-secondary {
+            background: #6b7280;
+            color: white;
+        }
+        
+        .btn-secondary:hover {
+            background: #4b5563;
+        }
+        
+        .loading {
+            text-align: center;
+            padding: 3rem;
+            color: #6b7280;
+        }
+        
+        .empty-state {
+            text-align: center;
+            padding: 3rem;
+            color: #6b7280;
+        }
+        
+        .error-message {
+            background: #fef2f2;
+            border: 1px solid #fecaca;
+            color: #991b1b;
+            padding: 0.75rem;
+            border-radius: 6px;
+            margin-bottom: 1rem;
+        }
+        
+        .success-message {
+            background: #ecfdf5;
+            border: 1px solid #bbf7d0;
+            color: #166534;
+            padding: 0.75rem;
+            border-radius: 6px;
+            margin-bottom: 1rem;
+        }
+    </style>
+</head>
+<body>
+    <div id="react-app"></div>
+    
+    <script>
+        const { useState, useEffect, createElement: h } = React;
+        
+        // Utility functions
+        const isValidHexColor = (hex) => {
+            return /^#([A-Fa-f0-9]{6}|[A-Fa-f0-9]{3})$/.test(hex);
+        };
+        
+        const generateRandomColor = () => {
+            const colors = [
+                '#3b82f6', '#ef4444', '#10b981', '#f59e0b', '#8b5cf6',
+                '#06b6d4', '#84cc16', '#f97316', '#ec4899', '#6b7280'
+            ];
+            return colors[Math.floor(Math.random() * colors.length)];
+        };
+        
+        // Category Form Modal Component
+        const CategoryFormModal = ({ category, onClose, onSave }) => {
+            const [formData, setFormData] = useState({
+                name: category?.name || '',
+                color: category?.color || generateRandomColor()
+            });
+            const [saving, setSaving] = useState(false);
+            const [error, setError] = useState('');
+            
+            const handleSubmit = async (e) => {
+                e.preventDefault();
+                setSaving(true);
+                setError('');
+                
+                // Validate form data
+                if (!formData.name.trim()) {
+                    setError('Category name is required');
+                    setSaving(false);
+                    return;
+                }
+                
+                if (!isValidHexColor(formData.color)) {
+                    setError('Please enter a valid hex color (e.g., #3b82f6)');
+                    setSaving(false);
+                    return;
+                }
+                
+                try {
+                    const csrfToken = document.querySelector('meta[name="csrf-token"]')?.getAttribute('content');
+                    const url = category ? `/api/v1/categories/${category.id}` : '/api/v1/categories';
+                    const method = category ? 'PATCH' : 'POST';
+                    
+                    const response = await fetch(url, {
+                        method: method,
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'X-CSRF-Token': csrfToken
+                        },
+                        body: JSON.stringify({ category: formData })
+                    });
+
+                    if (response.ok) {
+                        const result = await response.json();
+                        onSave(result.category);
+                        onClose();
+                    } else {
+                        const errorData = await response.json();
+                        setError(errorData.errors?.join(', ') || errorData.error || 'Failed to save category');
+                    }
+                } catch (error) {
+                    setError('Network error: ' + error.message);
+                } finally {
+                    setSaving(false);
+                }
+            };
+
+            const handleColorChange = (e) => {
+                const color = e.target.value;
+                setFormData({...formData, color: color});
+            };
+
+            return h('div', { className: 'modal', onClick: onClose },
+                h('div', { 
+                    className: 'modal-content', 
+                    onClick: e => e.stopPropagation() 
+                },
+                    h('h3', null, category ? 'Edit Category' : 'Add New Category'),
+                    error && h('div', { className: 'error-message' }, error),
+                    h('form', { onSubmit: handleSubmit },
+                        h('div', { className: 'form-group' },
+                            h('label', { htmlFor: 'category-name' }, 'Category Name'),
+                            h('input', {
+                                id: 'category-name',
+                                type: 'text',
+                                value: formData.name,
+                                onChange: e => setFormData({...formData, name: e.target.value}),
+                                placeholder: 'Enter category name...',
+                                required: true
+                            })
+                        ),
+                        h('div', { className: 'form-group' },
+                            h('label', { htmlFor: 'category-color' }, 'Color (Hex)'),
+                            h('div', { className: 'color-input-group' },
+                                h('input', {
+                                    id: 'category-color',
+                                    type: 'text',
+                                    value: formData.color,
+                                    onChange: handleColorChange,
+                                    placeholder: '#3b82f6',
+                                    pattern: '^#([A-Fa-f0-9]{6}|[A-Fa-f0-9]{3})$',
+                                    className: 'color-input'
+                                }),
+                                h('div', { 
+                                    className: 'color-preview',
+                                    style: { 
+                                        backgroundColor: isValidHexColor(formData.color) ? formData.color : '#e5e7eb'
+                                    }
+                                })
+                            )
+                        ),
+                        h('div', { className: 'modal-actions' },
+                            h('button', { 
+                                type: 'button', 
+                                className: 'btn btn-secondary',
+                                onClick: onClose,
+                                disabled: saving
+                            }, 'Cancel'),
+                            h('button', { 
+                                type: 'submit', 
+                                className: 'btn btn-primary',
+                                disabled: saving
+                            }, saving ? 'Saving...' : (category ? 'Update Category' : 'Add Category'))
+                        )
+                    )
+                )
+            );
+        };
+
+        // Category Item Component
+        const CategoryItem = ({ category, onEdit, onDelete }) => {
+            return h('div', { className: 'category-item' },
+                h('div', { className: 'category-info' },
+                    h('div', { 
+                        className: 'category-color',
+                        style: { backgroundColor: category.color || '#6b7280' }
+                    }),
+                    h('div', { className: 'category-details' },
+                        h('div', { className: 'category-name' }, category.name),
+                        h('div', { className: 'category-meta' }, 
+                            category.color ? `Color: ${category.color}` : 'No color set'
+                        )
+                    )
+                ),
+                h('div', { className: 'category-actions' },
+                    h('button', { 
+                        className: 'btn btn-edit',
+                        onClick: () => onEdit(category)
+                    }, '✏️ Edit'),
+                    h('button', { 
+                        className: 'btn btn-delete',
+                        onClick: () => onDelete(category)
+                    }, '🗑️ Delete')
+                )
+            );
+        };
+
+        // Main Categories Management Component
+        const CategoriesManagement = () => {
+            const [categories, setCategories] = useState([]);
+            const [loading, setLoading] = useState(true);
+            const [showModal, setShowModal] = useState(false);
+            const [editingCategory, setEditingCategory] = useState(null);
+            const [message, setMessage] = useState('');
+
+            const loadCategories = async () => {
+                try {
+                    setLoading(true);
+                    const response = await fetch('/api/v1/categories');
+                    const data = await response.json();
+                    setCategories(data.categories || []);
+                } catch (error) {
+                    console.error('Error loading categories:', error);
+                    setMessage('Error loading categories: ' + error.message);
+                } finally {
+                    setLoading(false);
+                }
+            };
+
+            useEffect(() => {
+                loadCategories();
+            }, []);
+
+            const handleAddCategory = () => {
+                setEditingCategory(null);
+                setShowModal(true);
+            };
+
+            const handleEditCategory = (category) => {
+                setEditingCategory(category);
+                setShowModal(true);
+            };
+
+            const handleDeleteCategory = async (category) => {
+                if (!confirm(`Delete category "${category.name}"? This action cannot be undone.`)) {
+                    return;
+                }
+
+                try {
+                    const csrfToken = document.querySelector('meta[name="csrf-token"]')?.getAttribute('content');
+                    const response = await fetch(`/api/v1/categories/${category.id}`, {
+                        method: 'DELETE',
+                        headers: {
+                            'X-CSRF-Token': csrfToken
+                        }
+                    });
+
+                    if (response.ok) {
+                        setCategories(categories.filter(c => c.id !== category.id));
+                        setMessage('Category deleted successfully');
+                        setTimeout(() => setMessage(''), 3000);
+                    } else {
+                        const error = await response.json();
+                        setMessage('Error deleting category: ' + (error.error || 'Unknown error'));
+                    }
+                } catch (error) {
+                    setMessage('Network error: ' + error.message);
+                }
+            };
+
+            const handleSaveCategory = (savedCategory) => {
+                if (editingCategory) {
+                    // Update existing category
+                    setCategories(categories.map(c => 
+                        c.id === savedCategory.id ? savedCategory : c
+                    ));
+                    setMessage('Category updated successfully');
+                } else {
+                    // Add new category
+                    setCategories([...categories, savedCategory]);
+                    setMessage('Category added successfully');
+                }
+                setTimeout(() => setMessage(''), 3000);
+            };
+
+            const handleCloseModal = () => {
+                setShowModal(false);
+                setEditingCategory(null);
+            };
+
+            return h('div', { className: 'categories-container' },
+                h('a', { href: '/', className: 'back-link' }, '← Back to Dashboard'),
+                
+                h('div', { className: 'page-header' },
+                    h('h1', null, '📂 Categories Management'),
+                    h('p', null, 'Create and manage transaction categories with custom colors')
+                ),
+
+                message && h('div', { 
+                    className: message.includes('Error') ? 'error-message' : 'success-message' 
+                }, message),
+
+                h('div', { className: 'categories-section' },
+                    h('div', { className: 'section-header' },
+                        h('h2', null, `Categories (${categories.length})`),
+                        h('button', { 
+                            className: 'add-category-btn',
+                            onClick: handleAddCategory
+                        }, '+ Add Category')
+                    ),
+
+                    loading ? h('div', { className: 'loading' }, 'Loading categories...') :
+                    categories.length === 0 ? h('div', { className: 'empty-state' }, 
+                        '📂 No categories yet. Create your first category!'
+                    ) : 
+                    categories.map(category =>
+                        h(CategoryItem, {
+                            key: category.id,
+                            category,
+                            onEdit: handleEditCategory,
+                            onDelete: handleDeleteCategory
+                        })
+                    )
+                ),
+
+                showModal && h(CategoryFormModal, {
+                    category: editingCategory,
+                    onClose: handleCloseModal,
+                    onSave: handleSaveCategory
+                })
+            );
+        };
+
+        // Render the app
+        const container = document.getElementById('react-app');
+        const root = ReactDOM.createRoot(container);
+        root.render(h(CategoriesManagement));
+    </script>
+</body>
+</html>
