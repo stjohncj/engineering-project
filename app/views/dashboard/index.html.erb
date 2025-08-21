@@ -18,6 +18,89 @@
             padding: 0;
             font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
         }
+        
+        .header-content {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            flex-wrap: wrap;
+            gap: 1rem;
+        }
+        
+        .polling-controls {
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+            background: rgba(255, 255, 255, 0.1);
+            padding: 0.75rem 1rem;
+            border-radius: 8px;
+            backdrop-filter: blur(10px);
+        }
+        
+        .polling-status {
+            display: flex;
+            flex-direction: column;
+            gap: 0.25rem;
+            color: white;
+        }
+        
+        .status-indicator {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            display: inline-block;
+            margin-right: 0.5rem;
+            animation: pulse 2s infinite;
+        }
+        
+        .status-indicator.active {
+            background-color: #10b981;
+        }
+        
+        .status-indicator.inactive {
+            background-color: #ef4444;
+        }
+        
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.5; }
+        }
+        
+        .polling-buttons {
+            display: flex;
+            gap: 0.5rem;
+        }
+        
+        .polling-toggle, .refresh-btn {
+            background: rgba(255, 255, 255, 0.2);
+            border: 1px solid rgba(255, 255, 255, 0.3);
+            color: white;
+            padding: 0.5rem;
+            border-radius: 6px;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            font-size: 1rem;
+        }
+        
+        .polling-toggle:hover, .refresh-btn:hover {
+            background: rgba(255, 255, 255, 0.3);
+            transform: translateY(-1px);
+        }
+        
+        .polling-toggle.active {
+            background: rgba(16, 185, 129, 0.3);
+            border-color: rgba(16, 185, 129, 0.5);
+        }
+        
+        .polling-toggle.inactive {
+            background: rgba(239, 68, 68, 0.3);
+            border-color: rgba(239, 68, 68, 0.5);
+        }
+        
+        .polling-status small {
+            opacity: 0.8;
+            font-size: 0.75rem;
+        }
     </style>
 </head>
 <body>
@@ -63,25 +146,34 @@
         };
 
         // TransactionList Component
-        const TransactionList = ({ limit = 5 }) => {
+        const TransactionList = ({ limit = 5, pollInterval = 30000 }) => {
             const [transactions, setTransactions] = useState([]);
             const [loading, setLoading] = useState(true);
+            const [lastUpdate, setLastUpdate] = useState(null);
+
+            const loadTransactions = async () => {
+                try {
+                    setLoading(true);
+                    const response = await fetch('/api/v1/dashboard/recent_transactions');
+                    const data = await response.json();
+                    setTransactions(data.transactions || []);
+                    setLastUpdate(new Date());
+                } catch (error) {
+                    console.error('Error loading transactions:', error);
+                } finally {
+                    setLoading(false);
+                }
+            };
 
             useEffect(() => {
-                const loadTransactions = async () => {
-                    try {
-                        setLoading(true);
-                        const response = await fetch('/api/v1/dashboard/recent_transactions');
-                        const data = await response.json();
-                        setTransactions(data.transactions || []);
-                    } catch (error) {
-                        console.error('Error loading transactions:', error);
-                    } finally {
-                        setLoading(false);
-                    }
-                };
                 loadTransactions();
-            }, [limit]);
+                
+                // Set up polling interval
+                const interval = setInterval(loadTransactions, pollInterval);
+                
+                // Cleanup interval on unmount
+                return () => clearInterval(interval);
+            }, [limit, pollInterval]);
 
             const getStatusBadgeClass = (status) => {
                 const statusClasses = {
@@ -126,25 +218,34 @@
         };
 
         // AnomalyList Component
-        const AnomalyList = ({ limit = 5 }) => {
+        const AnomalyList = ({ limit = 5, pollInterval = 30000 }) => {
             const [anomalies, setAnomalies] = useState([]);
             const [loading, setLoading] = useState(true);
+            const [lastUpdate, setLastUpdate] = useState(null);
+
+            const loadAnomalies = async () => {
+                try {
+                    setLoading(true);
+                    const response = await fetch('/api/v1/dashboard/active_anomalies');
+                    const data = await response.json();
+                    setAnomalies(data.anomalies || []);
+                    setLastUpdate(new Date());
+                } catch (error) {
+                    console.error('Error loading anomalies:', error);
+                } finally {
+                    setLoading(false);
+                }
+            };
 
             useEffect(() => {
-                const loadAnomalies = async () => {
-                    try {
-                        setLoading(true);
-                        const response = await fetch('/api/v1/dashboard/active_anomalies');
-                        const data = await response.json();
-                        setAnomalies(data.anomalies || []);
-                    } catch (error) {
-                        console.error('Error loading anomalies:', error);
-                    } finally {
-                        setLoading(false);
-                    }
-                };
                 loadAnomalies();
-            }, [limit]);
+                
+                // Set up polling interval
+                const interval = setInterval(loadAnomalies, pollInterval);
+                
+                // Cleanup interval on unmount
+                return () => clearInterval(interval);
+            }, [limit, pollInterval]);
 
             const getSeverityColor = (severity) => {
                 const colors = {
@@ -216,6 +317,8 @@
                 transactions: 0, categories: 0, anomalies: 0, rules: 0
             });
             const [loading, setLoading] = useState(true);
+            const [lastUpdate, setLastUpdate] = useState(null);
+            const [pollingEnabled, setPollingEnabled] = useState(true);
 
             const loadStats = async () => {
                 try {
@@ -230,6 +333,7 @@
                         anomalies: stats.unresolved_anomalies || 0,
                         rules: stats.active_rules || 0
                     });
+                    setLastUpdate(new Date());
                 } catch (error) {
                     console.error('Error loading stats:', error);
                 } finally {
@@ -239,16 +343,61 @@
 
             useEffect(() => {
                 loadStats();
-            }, []);
+                
+                if (pollingEnabled) {
+                    // Set up polling interval for stats (every 30 seconds)
+                    const interval = setInterval(loadStats, 30000);
+                    
+                    // Cleanup interval on unmount
+                    return () => clearInterval(interval);
+                }
+            }, [pollingEnabled]);
 
             const refreshDashboard = () => {
                 loadStats();
             };
 
+            const togglePolling = () => {
+                setPollingEnabled(!pollingEnabled);
+            };
+
+            const formatLastUpdate = (date) => {
+                if (!date) return 'Never';
+                return date.toLocaleTimeString('en-US', { 
+                    hour12: false,
+                    hour: '2-digit',
+                    minute: '2-digit',
+                    second: '2-digit'
+                });
+            };
+
             return h('div', { className: 'dashboard' },
                 h('div', { className: 'dashboard-header' },
-                    h('h1', null, '📊 Bookkeeping System'),
-                    h('p', null, 'Automated Transaction Management & Anomaly Detection')
+                    h('div', { className: 'header-content' },
+                        h('div', null,
+                            h('h1', null, '📊 Bookkeeping System'),
+                            h('p', null, 'Automated Transaction Management & Anomaly Detection')
+                        ),
+                        h('div', { className: 'polling-controls' },
+                            h('div', { className: 'polling-status' },
+                                h('span', { className: `status-indicator ${pollingEnabled ? 'active' : 'inactive'}` }),
+                                h('span', null, pollingEnabled ? 'Auto-refresh: ON' : 'Auto-refresh: OFF'),
+                                h('small', null, `Last updated: ${formatLastUpdate(lastUpdate)}`)
+                            ),
+                            h('div', { className: 'polling-buttons' },
+                                h('button', { 
+                                    onClick: togglePolling, 
+                                    className: `polling-toggle ${pollingEnabled ? 'active' : 'inactive'}`,
+                                    title: pollingEnabled ? 'Disable auto-refresh' : 'Enable auto-refresh'
+                                }, pollingEnabled ? '⏸️' : '▶️'),
+                                h('button', { 
+                                    onClick: refreshDashboard, 
+                                    className: 'refresh-btn',
+                                    title: 'Refresh now'
+                                }, '🔄')
+                            )
+                        )
+                    )
                 ),
                 h('div', { className: 'dashboard-container' },
                     h(StatsCards, { stats, loading }),

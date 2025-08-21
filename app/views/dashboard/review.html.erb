@@ -32,7 +32,14 @@
             box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
             padding: 2rem;
             margin-bottom: 2rem;
-            text-align: center;
+        }
+        
+        .header-content {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            flex-wrap: wrap;
+            gap: 1rem;
         }
         
         .header h1 {
@@ -44,6 +51,83 @@
         .header p {
             color: #6b7280;
             margin: 0;
+        }
+        
+        .polling-controls {
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+            background: rgba(220, 38, 38, 0.1);
+            padding: 0.75rem 1rem;
+            border-radius: 8px;
+            border: 1px solid rgba(220, 38, 38, 0.2);
+        }
+        
+        .polling-status {
+            display: flex;
+            flex-direction: column;
+            gap: 0.25rem;
+            color: #374151;
+        }
+        
+        .status-indicator {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            display: inline-block;
+            margin-right: 0.5rem;
+            animation: pulse 2s infinite;
+        }
+        
+        .status-indicator.active {
+            background-color: #10b981;
+        }
+        
+        .status-indicator.inactive {
+            background-color: #ef4444;
+        }
+        
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.5; }
+        }
+        
+        .polling-buttons {
+            display: flex;
+            gap: 0.5rem;
+        }
+        
+        .polling-toggle, .refresh-btn {
+            background: rgba(220, 38, 38, 0.2);
+            border: 1px solid rgba(220, 38, 38, 0.3);
+            color: #dc2626;
+            padding: 0.5rem;
+            border-radius: 6px;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            font-size: 1rem;
+        }
+        
+        .polling-toggle:hover, .refresh-btn:hover {
+            background: rgba(220, 38, 38, 0.3);
+            transform: translateY(-1px);
+        }
+        
+        .polling-toggle.active {
+            background: rgba(16, 185, 129, 0.3);
+            border-color: rgba(16, 185, 129, 0.5);
+            color: #059669;
+        }
+        
+        .polling-toggle.inactive {
+            background: rgba(239, 68, 68, 0.3);
+            border-color: rgba(239, 68, 68, 0.5);
+            color: #dc2626;
+        }
+        
+        .polling-status small {
+            opacity: 0.8;
+            font-size: 0.75rem;
         }
         
         .back-link {
@@ -700,6 +784,9 @@
             });
             const [selectedTransactions, setSelectedTransactions] = useState(new Set());
             const [categories, setCategories] = useState([]);
+            const [lastUpdate, setLastUpdate] = useState(null);
+            const [pollingEnabled, setPollingEnabled] = useState(true);
+            const [pollInterval] = useState(30000); // 30 seconds
 
             const loadCategories = async () => {
                 try {
@@ -751,6 +838,7 @@
                     setTransactions(data.transactions || []);
                     setPagination(data.pagination || {});
                     setCurrentPage(page);
+                    setLastUpdate(new Date());
                 } catch (error) {
                     console.error('Error loading transactions:', error);
                     alert('Error loading transactions: ' + error.message);
@@ -763,6 +851,20 @@
                 loadTransactions(1);
                 loadCategories();
             }, [filters]);
+
+            // Set up polling effect
+            useEffect(() => {
+                if (!pollingEnabled) return;
+
+                const interval = setInterval(() => {
+                    // Only poll if user is not editing a transaction to avoid conflicts
+                    if (!editingTransaction) {
+                        loadTransactions(currentPage, true);
+                    }
+                }, pollInterval);
+
+                return () => clearInterval(interval);
+            }, [pollingEnabled, currentPage, editingTransaction, pollInterval]);
 
             const checkTransactionMatchesFilter = (transaction) => {
                 // Check if transaction matches current filter criteria
@@ -1006,12 +1108,53 @@
                 }
             };
 
+            const togglePolling = () => {
+                setPollingEnabled(!pollingEnabled);
+            };
+
+            const refreshTransactions = () => {
+                loadTransactions(currentPage, true);
+            };
+
+            const formatLastUpdate = (date) => {
+                if (!date) return 'Never';
+                return date.toLocaleTimeString('en-US', { 
+                    hour12: false,
+                    hour: '2-digit',
+                    minute: '2-digit',
+                    second: '2-digit'
+                });
+            };
+
             return h('div', { className: 'review-container' },
                 h('a', { href: '/', className: 'back-link' }, '← Back to Dashboard'),
                 
                 h('div', { className: 'header' },
-                    h('h1', null, `🚨 Review ${getPageTitle()}`),
-                    h('p', null, 'Review and manage transactions that require attention')
+                    h('div', { className: 'header-content' },
+                        h('div', null,
+                            h('h1', null, `🚨 Review ${getPageTitle()}`),
+                            h('p', null, 'Review and manage transactions that require attention')
+                        ),
+                        h('div', { className: 'polling-controls' },
+                            h('div', { className: 'polling-status' },
+                                h('span', { className: `status-indicator ${pollingEnabled ? 'active' : 'inactive'}` }),
+                                h('span', null, pollingEnabled ? 'Auto-refresh: ON' : 'Auto-refresh: OFF'),
+                                h('small', null, `Last updated: ${formatLastUpdate(lastUpdate)}`)
+                            ),
+                            h('div', { className: 'polling-buttons' },
+                                h('button', { 
+                                    onClick: togglePolling, 
+                                    className: `polling-toggle ${pollingEnabled ? 'active' : 'inactive'}`,
+                                    title: pollingEnabled ? 'Disable auto-refresh' : 'Enable auto-refresh'
+                                }, pollingEnabled ? '⏸️' : '▶️'),
+                                h('button', { 
+                                    onClick: refreshTransactions, 
+                                    className: 'refresh-btn',
+                                    title: 'Refresh now'
+                                }, '🔄')
+                            )
+                        )
+                    )
                 ),
 
                 h('div', { className: 'filters' },
