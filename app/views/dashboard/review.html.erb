@@ -541,7 +541,7 @@
     <div id="react-app"></div>
     
     <script>
-        const { useState, useEffect, createElement: h } = React;
+        const { useState, useEffect, useRef, createElement: h } = React;
         
         // Utility functions
         const formatCurrency = (amount) => {
@@ -780,13 +780,27 @@
             const [filters, setFilters] = useState({
                 status: 'flagged',  // Start with flagged filter as default
                 severity: '',
-                anomaly_type: ''
+                anomaly_type: '',
+                show_mode: 'with_anomalies'  // New filter: 'all' or 'with_anomalies'
             });
             const [selectedTransactions, setSelectedTransactions] = useState(new Set());
             const [categories, setCategories] = useState([]);
             const [lastUpdate, setLastUpdate] = useState(null);
             const [pollingEnabled, setPollingEnabled] = useState(true);
             const [pollInterval] = useState(30000); // 30 seconds
+            
+            // Use refs to store current values for polling
+            const filtersRef = useRef(filters);
+            const currentPageRef = useRef(currentPage);
+            
+            // Update refs when values change
+            useEffect(() => {
+                filtersRef.current = filters;
+            }, [filters]);
+            
+            useEffect(() => {
+                currentPageRef.current = currentPage;
+            }, [currentPage]);
 
             const loadCategories = async () => {
                 try {
@@ -808,16 +822,19 @@
                         per_page: 10
                     });
                     
-                    // Only add filters that have values
+                    // Only add filters that have values (except show_mode which we handle separately)
                     Object.entries(filters).forEach(([key, value]) => {
-                        if (value && value.trim() !== '') {
+                        if (key !== 'show_mode' && value && value.trim() !== '') {
                             params.append(key, value);
                         }
                     });
                     
-                    // Add show_all parameter when no status filter is selected (All Statuses)
-                    if (!filters.status || filters.status.trim() === '') {
+                    // Handle the show_mode filter
+                    if (filters.show_mode === 'all') {
                         params.append('show_all', 'true');
+                    } else {
+                        // Default to 'with_anomalies' mode
+                        params.append('with_anomalies_only', 'true');
                     }
                     
                     // Add cache busting parameter when needed
@@ -856,15 +873,60 @@
             useEffect(() => {
                 if (!pollingEnabled) return;
 
-                const interval = setInterval(() => {
+                const interval = setInterval(async () => {
                     // Only poll if user is not editing a transaction to avoid conflicts
                     if (!editingTransaction) {
-                        loadTransactions(currentPage, true);
+                        // Use refs to get current values and avoid stale closures
+                        const currentFilters = filtersRef.current;
+                        const currentPageValue = currentPageRef.current;
+                        
+                        try {
+                            setLoading(true);
+                            const params = new URLSearchParams({
+                                page: currentPageValue,
+                                per_page: 10
+                            });
+                            
+                            // Add cache buster for polling
+                            params.append('_cb', Date.now());
+                            
+                            // Only add filters that have values (except show_mode which we handle separately)
+                            Object.entries(currentFilters).forEach(([key, value]) => {
+                                if (key !== 'show_mode' && value && value.trim() !== '') {
+                                    params.append(key, value);
+                                }
+                            });
+                            
+                            // Handle the show_mode filter
+                            if (currentFilters.show_mode === 'all') {
+                                params.append('show_all', 'true');
+                            } else {
+                                params.append('with_anomalies_only', 'true');
+                            }
+
+                            const response = await fetch(`/api/v1/transactions/anomalies?${params}`, {
+                                headers: {
+                                    'Cache-Control': 'no-cache',
+                                    'Pragma': 'no-cache'
+                                }
+                            });
+                            
+                            if (response.ok) {
+                                const data = await response.json();
+                                setTransactions(data.transactions || []);
+                                setPagination(data.pagination || {});
+                                setLastUpdate(new Date().toLocaleTimeString());
+                            }
+                        } catch (error) {
+                            console.error('Error polling for transactions:', error);
+                        } finally {
+                            setLoading(false);
+                        }
                     }
                 }, pollInterval);
 
                 return () => clearInterval(interval);
-            }, [pollingEnabled, currentPage, editingTransaction, pollInterval]);
+            }, [pollingEnabled, editingTransaction, pollInterval]);
 
             const checkTransactionMatchesFilter = (transaction) => {
                 // Check if transaction matches current filter criteria
@@ -1083,28 +1145,30 @@
             };
 
             const getPageTitle = () => {
+                const modePrefix = filters.show_mode === 'all' ? '' : 'Anomalous ';
                 if (!filters.status || filters.status === '') {
-                    return 'All Transactions';
+                    return filters.show_mode === 'all' ? 'All Transactions' : 'Transactions with Anomalies';
                 }
                 switch (filters.status) {
-                    case 'flagged': return 'Flagged Transactions';
-                    case 'pending': return 'Pending Transactions';
-                    case 'rejected': return 'Rejected Transactions';
-                    case 'approved': return 'Approved Transactions';
-                    default: return 'Transactions';
+                    case 'flagged': return modePrefix + 'Flagged Transactions';
+                    case 'pending': return modePrefix + 'Pending Transactions';
+                    case 'rejected': return modePrefix + 'Rejected Transactions';
+                    case 'approved': return modePrefix + 'Approved Transactions';
+                    default: return modePrefix + 'Transactions';
                 }
             };
 
             const getSectionTitle = () => {
+                const modePrefix = filters.show_mode === 'all' ? '' : 'Anomalous ';
                 if (!filters.status || filters.status === '') {
-                    return 'All Transactions';
+                    return filters.show_mode === 'all' ? 'All Transactions' : 'Transactions with Anomalies';
                 }
                 switch (filters.status) {
-                    case 'flagged': return 'Flagged Transactions';
-                    case 'pending': return 'Pending Transactions';
-                    case 'rejected': return 'Rejected Transactions';
-                    case 'approved': return 'Approved Transactions';
-                    default: return 'Transactions';
+                    case 'flagged': return modePrefix + 'Flagged Transactions';
+                    case 'pending': return modePrefix + 'Pending Transactions';
+                    case 'rejected': return modePrefix + 'Rejected Transactions';
+                    case 'approved': return modePrefix + 'Approved Transactions';
+                    default: return modePrefix + 'Transactions';
                 }
             };
 
@@ -1160,6 +1224,18 @@
                 h('div', { className: 'filters' },
                     h('h3', null, 'Filters'),
                     h('div', { className: 'filter-grid' },
+                        h('div', { className: 'filter-group' },
+                            h('label', { htmlFor: 'show-mode-filter' }, 'Show'),
+                            h('select', {
+                                id: 'show-mode-filter',
+                                name: 'show_mode',
+                                value: filters.show_mode,
+                                onChange: e => setFilters({...filters, show_mode: e.target.value})
+                            },
+                                h('option', { value: 'with_anomalies' }, 'Only With Anomalies'),
+                                h('option', { value: 'all' }, 'All Transactions')
+                            )
+                        ),
                         h('div', { className: 'filter-group' },
                             h('label', { htmlFor: 'status-filter' }, 'Status'),
                             h('select', {

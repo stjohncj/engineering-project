@@ -268,7 +268,14 @@
             const loadTransactions = async () => {
                 try {
                     setLoading(true);
-                    const response = await fetch('/api/v1/dashboard/recent_transactions');
+                    // Add cache-busting parameter to ensure fresh data
+                    const cacheBuster = Date.now();
+                    const response = await fetch(`/api/v1/dashboard/recent_transactions?_cb=${cacheBuster}`, {
+                        headers: {
+                            'Cache-Control': 'no-cache',
+                            'Pragma': 'no-cache'
+                        }
+                    });
                     const data = await response.json();
                     setTransactions(data.transactions || []);
                     setLastUpdate(new Date());
@@ -340,7 +347,14 @@
             const loadAnomalies = async () => {
                 try {
                     setLoading(true);
-                    const response = await fetch('/api/v1/dashboard/active_anomalies');
+                    // Add cache-busting parameter to ensure fresh data
+                    const cacheBuster = Date.now();
+                    const response = await fetch(`/api/v1/dashboard/active_anomalies?_cb=${cacheBuster}`, {
+                        headers: {
+                            'Cache-Control': 'no-cache',
+                            'Pragma': 'no-cache'
+                        }
+                    });
                     const data = await response.json();
                     setAnomalies(data.anomalies || []);
                     setLastUpdate(new Date());
@@ -440,7 +454,14 @@
             const loadSpendingData = async () => {
                 try {
                     setLoading(true);
-                    const response = await fetch('/api/v1/dashboard/statistics');
+                    // Add cache-busting parameter to ensure fresh data
+                    const cacheBuster = Date.now();
+                    const response = await fetch(`/api/v1/dashboard/statistics?_cb=${cacheBuster}`, {
+                        headers: {
+                            'Cache-Control': 'no-cache',
+                            'Pragma': 'no-cache'
+                        }
+                    });
                     const data = await response.json();
                     const categoryBreakdown = data.statistics.category_breakdown || [];
                     
@@ -589,7 +610,14 @@
             const loadStats = async () => {
                 try {
                     setLoading(true);
-                    const response = await fetch('/api/v1/dashboard/statistics');
+                    // Add cache-busting parameter to ensure fresh data
+                    const cacheBuster = Date.now();
+                    const response = await fetch(`/api/v1/dashboard/statistics?_cb=${cacheBuster}`, {
+                        headers: {
+                            'Cache-Control': 'no-cache',
+                            'Pragma': 'no-cache'
+                        }
+                    });
                     const data = await response.json();
                     const stats = data.statistics;
 

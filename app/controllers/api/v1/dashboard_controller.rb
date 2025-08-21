@@ -8,6 +8,11 @@ class Api::V1::DashboardController < ApplicationController
       calculate_statistics
     end
 
+    # Set no-cache headers to prevent browser caching
+    response.headers["Cache-Control"] = "no-cache, no-store, must-revalidate"
+    response.headers["Pragma"] = "no-cache"
+    response.headers["Expires"] = "0"
+
     render json: { statistics: stats }
   end
 
@@ -19,6 +24,11 @@ class Api::V1::DashboardController < ApplicationController
                  .limit(10)
                  .map { |t| transaction_json(t) }
     end
+
+    # Set no-cache headers to prevent browser caching
+    response.headers["Cache-Control"] = "no-cache, no-store, must-revalidate"
+    response.headers["Pragma"] = "no-cache"
+    response.headers["Expires"] = "0"
 
     render json: { transactions: transactions }
   end
@@ -32,6 +42,11 @@ class Api::V1::DashboardController < ApplicationController
                       .limit(5)
                       .map { |a| anomaly_json(a) }
     end
+
+    # Set no-cache headers to prevent browser caching
+    response.headers["Cache-Control"] = "no-cache, no-store, must-revalidate"
+    response.headers["Pragma"] = "no-cache"
+    response.headers["Expires"] = "0"
 
     render json: { anomalies: anomalies }
   end

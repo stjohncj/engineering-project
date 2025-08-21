@@ -156,15 +156,21 @@ class Api::V1::TransactionsController < ApplicationController
   end
 
   def anomalies
-    # Build base query - if status filter is provided, use it; otherwise default to transactions with anomalies
-    if params[:status].present?
+    # Build base query based on show_all and with_anomalies_only parameters
+    if params[:show_all] == "true"
+      # Show all transactions regardless of anomalies
       @transactions = Transaction.includes(:category)
-      @transactions = @transactions.where(status: params[:status])
-    elsif params[:show_all] == "true"
-      # Special case: show all transactions when explicitly requested
-      @transactions = Transaction.includes(:category)
-    else
+    elsif params[:with_anomalies_only] == "true"
+      # Show only transactions with anomalies (explicit request)
       @transactions = Transaction.with_anomalies.includes(:category)
+    else
+      # Default behavior: show transactions with anomalies
+      @transactions = Transaction.with_anomalies.includes(:category)
+    end
+
+    # Apply status filter if provided
+    if params[:status].present?
+      @transactions = @transactions.where(status: params[:status])
     end
 
     # Apply additional filters
