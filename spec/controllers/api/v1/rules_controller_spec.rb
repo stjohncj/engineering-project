@@ -5,10 +5,11 @@ RSpec.describe Api::V1::RulesController, type: :controller do
   let(:valid_attributes) do
     {
       name: 'Test Rule',
-      description: 'A test rule for specs',
-      conditions: { 'description_contains' => [ 'test', 'sample' ] },
-      actions: { 'set_category' => 'Test Category' },
-      category_id: category.id,
+      condition_field: 'description',
+      condition_operator: 'contains',
+      condition_value: 'test',
+      action_type: 'categorize',
+      action_value: 'Test Category',
       active: true
     }
   end
@@ -16,10 +17,11 @@ RSpec.describe Api::V1::RulesController, type: :controller do
   let(:invalid_attributes) do
     {
       name: '',
-      description: '',
-      conditions: nil,
-      actions: nil,
-      category_id: nil
+      condition_field: '',
+      condition_operator: 'invalid',
+      condition_value: '',
+      action_type: 'invalid',
+      action_value: ''
     }
   end
 
@@ -54,33 +56,18 @@ RSpec.describe Api::V1::RulesController, type: :controller do
       end
     end
 
-    context 'filtering by category' do
-      let!(:grocery_category) { create(:category, :groceries) }
-      let!(:transport_category) { create(:category, :transportation) }
-      let!(:grocery_rule) { create(:rule, category: grocery_category) }
-      let!(:transport_rule) { create(:rule, category: transport_category) }
-
-      it 'filters by category name' do
-        get :index, params: { category: 'Groceries' }
-        json = JSON.parse(response.body)
-        expect(json['rules'].length).to eq(1)
-        expect(json['rules'].first['category_name']).to eq('Groceries')
-      end
-
-      it 'filters by category id' do
-        get :index, params: { category_id: grocery_category.id }
-        json = JSON.parse(response.body)
-        expect(json['rules'].length).to eq(1)
-        expect(json['rules'].first['category_id']).to eq(grocery_category.id)
-      end
-    end
-
-    it 'includes category information' do
+    it 'includes rule information' do
       get :index
       json = JSON.parse(response.body)
-      rule_with_category = json['rules'].first
-      expect(rule_with_category).to have_key('category_name')
-      expect(rule_with_category).to have_key('category_id')
+      rule_json = json['rules'].first
+      expect(rule_json).to have_key('id')
+      expect(rule_json).to have_key('name')
+      expect(rule_json).to have_key('condition_field')
+      expect(rule_json).to have_key('condition_operator')
+      expect(rule_json).to have_key('condition_value')
+      expect(rule_json).to have_key('action_type')
+      expect(rule_json).to have_key('action_value')
+      expect(rule_json).to have_key('active')
     end
   end
 
@@ -99,17 +86,14 @@ RSpec.describe Api::V1::RulesController, type: :controller do
       expect(json['rule']['name']).to eq(rule.name)
     end
 
-    it 'includes conditions and actions' do
+    it 'includes rule details' do
       get :show, params: { id: rule.to_param }
       json = JSON.parse(response.body)
-      expect(json['rule']['conditions']).to be_present
-      expect(json['rule']['actions']).to be_present
-    end
-
-    it 'includes category information' do
-      get :show, params: { id: rule.to_param }
-      json = JSON.parse(response.body)
-      expect(json['rule']['category_name']).to eq(rule.category.name)
+      expect(json['rule']['condition_field']).to be_present
+      expect(json['rule']['condition_operator']).to be_present
+      expect(json['rule']['condition_value']).to be_present
+      expect(json['rule']['action_type']).to be_present
+      expect(json['rule']['action_value']).to be_present
     end
 
     it 'returns 404 for non-existent rule' do
@@ -138,11 +122,14 @@ RSpec.describe Api::V1::RulesController, type: :controller do
         expect(json['rule']['active']).to be true
       end
 
-      it 'properly stores JSON conditions and actions' do
+      it 'properly stores rule attributes' do
         post :create, params: { rule: valid_attributes }
         json = JSON.parse(response.body)
-        expect(json['rule']['conditions']).to eq(valid_attributes[:conditions])
-        expect(json['rule']['actions']).to eq(valid_attributes[:actions])
+        expect(json['rule']['condition_field']).to eq('description')
+        expect(json['rule']['condition_operator']).to eq('contains')
+        expect(json['rule']['condition_value']).to eq('test')
+        expect(json['rule']['action_type']).to eq('categorize')
+        expect(json['rule']['action_value']).to eq('Test Category')
       end
     end
 
@@ -155,7 +142,7 @@ RSpec.describe Api::V1::RulesController, type: :controller do
 
       it 'returns an unprocessable entity response' do
         post :create, params: { rule: invalid_attributes }
-        expect(response).to have_http_status(:unprocessable_entity)
+        expect(response).to have_http_status(:unprocessable_content)
       end
 
       it 'returns error messages' do
@@ -190,8 +177,11 @@ RSpec.describe Api::V1::RulesController, type: :controller do
       let(:new_attributes) do
         {
           name: 'Updated Rule',
-          conditions: { 'amount_greater_than' => 100.0 },
-          actions: { 'set_status' => 'flagged' }
+          condition_field: 'amount',
+          condition_operator: 'greater_than',
+          condition_value: '100.0',
+          action_type: 'flag',
+          action_value: 'Large transaction'
         }
       end
 
@@ -199,8 +189,11 @@ RSpec.describe Api::V1::RulesController, type: :controller do
         patch :update, params: { id: rule.to_param, rule: new_attributes }
         rule.reload
         expect(rule.name).to eq('Updated Rule')
-        expect(rule.conditions).to eq(new_attributes[:conditions])
-        expect(rule.actions).to eq(new_attributes[:actions])
+        expect(rule.condition_field).to eq('amount')
+        expect(rule.condition_operator).to eq('greater_than')
+        expect(rule.condition_value).to eq('100.0')
+        expect(rule.action_type).to eq('flag')
+        expect(rule.action_value).to eq('Large transaction')
       end
 
       it 'returns a success response' do
@@ -218,7 +211,7 @@ RSpec.describe Api::V1::RulesController, type: :controller do
     context 'with invalid parameters' do
       it 'returns an unprocessable entity response' do
         patch :update, params: { id: rule.to_param, rule: invalid_attributes }
-        expect(response).to have_http_status(:unprocessable_entity)
+        expect(response).to have_http_status(:unprocessable_content)
       end
 
       it 'does not update the rule' do
@@ -251,14 +244,11 @@ RSpec.describe Api::V1::RulesController, type: :controller do
   end
 
   describe 'rule testing and application' do
-    let!(:grocery_category) { create(:category, :groceries) }
-    let!(:transport_category) { create(:category, :transportation) }
-    let!(:grocery_rule) { create(:rule, :grocery_rule, category: grocery_category) }
-    let!(:gas_rule) { create(:rule, :gas_station_rule, category: transport_category) }
+    let!(:grocery_rule) { create(:rule, :grocery_rule) }
+    let!(:gas_rule) { create(:rule, :gas_station_rule) }
 
     describe 'rule matching' do
       it 'can test if rules apply to sample transactions' do
-        # This would require a custom endpoint or parameter
         # Testing the underlying logic through the model specs is sufficient
         expect(grocery_rule.applies_to?(build(:transaction, description: 'Grocery Store Purchase'))).to be true
         expect(gas_rule.applies_to?(build(:transaction, description: 'Shell Gas Station'))).to be true
@@ -266,101 +256,54 @@ RSpec.describe Api::V1::RulesController, type: :controller do
     end
 
     context 'rule statistics' do
-      before do
-        # Create transactions that would match rules
-        create(:transaction, description: 'Grocery Store Purchase', category: grocery_category)
-        create(:transaction, description: 'Supermarket Shopping', category: grocery_category)
-        create(:transaction, description: 'Shell Gas Station', category: transport_category)
-      end
-
-      it 'includes rule usage statistics in listings' do
-        # This would be a custom feature - for now we test basic functionality
+      it 'includes rule basic information in listings' do
         get :index
         json = JSON.parse(response.body)
         expect(json['rules']).to be_present
         expect(json['rules'].first).to have_key('active')
+        expect(json['rules'].first).to have_key('condition_field')
+        expect(json['rules'].first).to have_key('action_type')
       end
     end
   end
 
-  describe 'JSON serialization and complex conditions' do
-    context 'with complex rule conditions' do
-      let(:complex_rule) do
-        create(:rule,
-               conditions: {
-                 'description_contains' => [ 'grocery', 'food', 'supermarket' ],
-                 'amount_range' => { 'min' => 10.0, 'max' => 500.0 },
-                 'exclude_descriptions' => [ 'gas', 'fuel' ]
-               },
-               actions: {
-                 'set_category' => 'Groceries',
-                 'set_status' => 'approved',
-                 'add_note' => 'Auto-categorized as grocery purchase'
-               })
-      end
+  describe 'JSON serialization' do
+    context 'with rule attributes' do
+      let(:rule) { create(:rule, :grocery_rule) }
 
-      it 'properly serializes complex conditions and actions' do
-        get :show, params: { id: complex_rule.to_param }
+      it 'properly serializes rule attributes' do
+        get :show, params: { id: rule.to_param }
         json = JSON.parse(response.body)
 
-        expect(json['rule']['conditions']['description_contains']).to eq([ 'grocery', 'food', 'supermarket' ])
-        expect(json['rule']['conditions']['amount_range']).to eq({ 'min' => 10.0, 'max' => 500.0 })
-        expect(json['rule']['actions']['set_category']).to eq('Groceries')
-      end
-    end
-
-    context 'with nested JSON structures' do
-      let(:nested_rule) do
-        create(:rule,
-               conditions: {
-                 'and' => [
-                   { 'description_contains' => 'restaurant' },
-                   { 'or' => [
-                     { 'amount_greater_than' => 50.0 },
-                     { 'time_range' => { 'start' => '18:00', 'end' => '23:00' } }
-                   ] }
-                 ]
-               })
-      end
-
-      it 'handles nested JSON conditions correctly' do
-        get :show, params: { id: nested_rule.to_param }
-        json = JSON.parse(response.body)
-
-        expect(json['rule']['conditions']['and']).to be_an(Array)
-        expect(json['rule']['conditions']['and'].first['description_contains']).to eq('restaurant')
+        expect(json['rule']['condition_field']).to eq('description')
+        expect(json['rule']['condition_operator']).to eq('contains')
+        expect(json['rule']['condition_value']).to eq('grocery')
+        expect(json['rule']['action_type']).to eq('categorize')
+        expect(json['rule']['action_value']).to eq('Groceries')
       end
     end
   end
 
   describe 'validation edge cases' do
-    it 'validates JSON format for conditions' do
+    it 'validates field inclusion for condition_field' do
       post :create, params: {
-        rule: valid_attributes.merge(conditions: 'invalid json string')
+        rule: valid_attributes.merge(condition_field: 'invalid_field')
       }
-      # This should be caught by our JSON column or validation
-      expect(response).to have_http_status(:unprocessable_entity)
+      expect(response).to have_http_status(:unprocessable_content)
     end
 
-    it 'validates JSON format for actions' do
+    it 'validates operator inclusion for condition_operator' do
       post :create, params: {
-        rule: valid_attributes.merge(actions: 'invalid json string')
+        rule: valid_attributes.merge(condition_operator: 'invalid_operator')
       }
-      expect(response).to have_http_status(:unprocessable_entity)
+      expect(response).to have_http_status(:unprocessable_content)
     end
 
-    it 'requires at least one condition' do
+    it 'validates action_type inclusion' do
       post :create, params: {
-        rule: valid_attributes.merge(conditions: {})
+        rule: valid_attributes.merge(action_type: 'invalid_action')
       }
-      expect(response).to have_http_status(:unprocessable_entity)
-    end
-
-    it 'requires at least one action' do
-      post :create, params: {
-        rule: valid_attributes.merge(actions: {})
-      }
-      expect(response).to have_http_status(:unprocessable_entity)
+      expect(response).to have_http_status(:unprocessable_content)
     end
   end
 end

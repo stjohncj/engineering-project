@@ -88,7 +88,16 @@ RSpec.describe CsvImportService do
       it 'invalidates caches after import' do
         expect(Rails.cache).to receive(:delete).with("dashboard_statistics")
         expect(Rails.cache).to receive(:delete).with("recent_transactions")
+        expect(Rails.cache).to receive(:delete).with("active_anomalies")
+        expect(Rails.cache).to receive(:delete).with("total_transactions_count")
+        expect(Rails.cache).to receive(:delete).with("total_amount_sum")
+        expect(Rails.cache).to receive(:delete).with("active_rules_count")
+        expect(Rails.cache).to receive(:delete).with("unresolved_anomalies_count")
+        expect(Rails.cache).to receive(:delete).with("categories_count")
+        expect(Rails.cache).to receive(:delete).with("monthly_transaction_trends")
+        expect(Rails.cache).to receive(:delete).with("category_breakdown")
         expect(Rails.cache).to receive(:delete_matched).with("transactions_index_*")
+        expect(Rails.cache).to receive(:delete_matched).with("total_transactions_filtered_*")
 
         service.import
       end

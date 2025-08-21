@@ -18,7 +18,7 @@ Rails.application.routes.draw do
       end
       resources :categories
       resources :rules
-      resources :anomaly_detections, only: [ :index, :show, :update ] do
+      resources :anomaly_detections do
         member do
           patch :resolve
         end

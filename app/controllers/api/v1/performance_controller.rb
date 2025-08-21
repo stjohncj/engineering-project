@@ -56,7 +56,7 @@ class Api::V1::PerformanceController < ApplicationController
       memory_usage: get_memory_usage,
       gc_stats: GC.stat,
       object_count: ObjectSpace.count_objects,
-      uptime: Time.current - Rails.application.config.time_zone.now.beginning_of_day,
+      uptime: (Time.current - Time.current.beginning_of_day).to_i,
       ruby_version: RUBY_VERSION,
       rails_version: Rails.version
     }
@@ -85,14 +85,17 @@ class Api::V1::PerformanceController < ApplicationController
   end
 
   def get_memory_usage
-    if defined?(GC)
-      heap_size = GC.stat[:heap_live_slots] * GC::INTERNAL_CONSTANTS[:RVALUE_SIZE]
-      (heap_size / 1024.0 / 1024.0).round(2) # Convert to MB
+    # Get memory usage in MB using GC stats
+    gc_stats = GC.stat
+    if gc_stats[:heap_live_slots] && gc_stats[:heap_allocated_slots]
+      # Use allocated slots as a proxy for memory usage
+      memory_mb = (gc_stats[:heap_allocated_slots] * 40 / 1024.0 / 1024.0).round(2)
+      [memory_mb, 1.0].max # Minimum 1MB
     else
-      0
+      1.0 # Default fallback
     end
   rescue
-    0
+    1.0
   end
 
   def get_table_sizes

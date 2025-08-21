@@ -214,7 +214,7 @@ RSpec.describe Api::V1::AnomalyDetectionsController, type: :controller do
 
       it 'returns an unprocessable entity response' do
         post :create, params: { anomaly_detection: invalid_attributes }
-        expect(response).to have_http_status(:unprocessable_entity)
+        expect(response).to have_http_status(:unprocessable_content)
       end
 
       it 'returns error messages' do
@@ -247,7 +247,7 @@ RSpec.describe Api::V1::AnomalyDetectionsController, type: :controller do
     context 'with invalid parameters' do
       it 'returns an unprocessable entity response' do
         patch :update, params: { id: anomaly.to_param, anomaly_detection: invalid_attributes }
-        expect(response).to have_http_status(:unprocessable_entity)
+        expect(response).to have_http_status(:unprocessable_content)
       end
     end
   end

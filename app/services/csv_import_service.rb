@@ -14,8 +14,11 @@ class CsvImportService
   def import
     transactions_batch = []
     row_number = 0
+    
+    # Handle both file objects and file paths
+    file_path = @file.respond_to?(:path) ? @file.path : @file
 
-    CSV.foreach(@file.path, headers: true, header_converters: :symbol) do |row|
+    CSV.foreach(file_path, headers: true, header_converters: :symbol) do |row|
       row_number += 1
 
       begin

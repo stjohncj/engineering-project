@@ -10,8 +10,6 @@ class AnomalyDetectionService
     detect_incomplete_metadata
 
     create_anomaly_records
-
-    @anomalies
   end
 
   private
@@ -31,7 +29,27 @@ class AnomalyDetectionService
         @anomalies << {
           type: "unusual_amount",
           severity: severity,
-          description: "Transaction amount (#{format_currency(amount)}) is significantly higher than typical spending (avg: #{format_currency(historical_stats[:mean])})"
+          description: "Transaction amount (#{format_currency(amount)}) is significantly higher than typical spending (avg: #{format_currency(historical_stats[:mean])})",
+          metadata: {
+            historical_average: historical_stats[:mean],
+            standard_deviation: historical_stats[:std_dev],
+            z_score: (amount - historical_stats[:mean]) / historical_stats[:std_dev]
+          }
+        }
+      end
+
+      # Check if amount is significantly lower than usual
+      if amount < historical_stats[:mean] - (2 * historical_stats[:std_dev]) && amount > 0
+        severity = calculate_amount_anomaly_severity(amount, historical_stats)
+        @anomalies << {
+          type: "unusual_amount",
+          severity: severity,
+          description: "Transaction amount (#{format_currency(amount)}) is significantly lower than typical spending (avg: #{format_currency(historical_stats[:mean])})",
+          metadata: {
+            historical_average: historical_stats[:mean],
+            standard_deviation: historical_stats[:std_dev],
+            z_score: (amount - historical_stats[:mean]) / historical_stats[:std_dev]
+          }
         }
       end
 
@@ -40,7 +58,11 @@ class AnomalyDetectionService
         @anomalies << {
           type: "unusual_amount",
           severity: 4,
-          description: "Large transaction amount: #{format_currency(amount)}"
+          description: "Large transaction amount: #{format_currency(amount)}",
+          metadata: {
+            historical_average: historical_stats[:mean],
+            threshold_exceeded: "large_amount_threshold"
+          }
         }
       end
     end
@@ -60,17 +82,20 @@ class AnomalyDetectionService
         @anomalies << {
           type: "potential_duplicate",
           severity: 3,
-          description: "Potential duplicate of transaction ##{similar.id} with #{(similarity * 100).round}% similarity"
+          description: "Potential duplicate of transaction ##{similar.id} with #{(similarity * 100).round}% similarity",
+          metadata: { similar_transaction_id: similar.id, similarity_score: similarity }
         }
       end
     end
 
     # Check for exact duplicates by hash
-    if Transaction.where(duplicate_hash: @transaction.duplicate_hash).where.not(id: @transaction.id).exists?
+    duplicate = Transaction.where(duplicate_hash: @transaction.duplicate_hash).where.not(id: @transaction.id).first
+    if duplicate
       @anomalies << {
         type: "potential_duplicate",
         severity: 5,
-        description: "Exact duplicate transaction detected (same amount, date, and description)"
+        description: "Exact duplicate transaction detected (same amount, date, and description)",
+        metadata: { similar_transaction_id: duplicate.id, similarity_score: 1.0 }
       }
     end
   end
@@ -118,8 +143,9 @@ class AnomalyDetectionService
 
   def calculate_amount_anomaly_severity(amount, stats)
     z_score = (amount - stats[:mean]) / stats[:std_dev]
+    abs_z_score = z_score.abs
 
-    case z_score
+    case abs_z_score
     when 0..2
       2
     when 2..3
@@ -149,20 +175,26 @@ class AnomalyDetectionService
   end
 
   def create_anomaly_records
+    created_records = []
+
     @anomalies.each do |anomaly_data|
-      AnomalyDetection.create!(
+      record = AnomalyDetection.create!(
         transaction_record: @transaction,
         anomaly_type: anomaly_data[:type],
         severity: anomaly_data[:severity],
         description: anomaly_data[:description],
+        metadata: anomaly_data[:metadata],
         resolved: false
       )
+      created_records << record
     end
 
     # Update transaction status if any anomalies are detected
     if @anomalies.any?
       @transaction.update!(status: :flagged)
     end
+
+    created_records
   end
 
   def format_currency(amount)

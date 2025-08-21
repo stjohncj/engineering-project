@@ -1,7 +1,7 @@
 class BulkRuleApplicationJob < ApplicationJob
   queue_as :default
 
-  retry_on StandardError, wait: :exponentially_longer, attempts: 3
+  retry_on StandardError, wait: 5.seconds, attempts: 3
 
   def perform(transaction_ids, rule_ids = nil)
     # Apply rules to multiple transactions efficiently
@@ -10,16 +10,14 @@ class BulkRuleApplicationJob < ApplicationJob
 
     processed_count = 0
 
-    # Process in batches to avoid memory issues
-    transactions.find_in_batches(batch_size: 100) do |batch|
-      batch.each do |transaction|
-        rules.each do |rule|
-          begin
-            rule.apply_to!(transaction)
-            processed_count += 1
-          rescue => e
-            Rails.logger.error "Failed to apply rule #{rule.id} to transaction #{transaction.id}: #{e.message}"
-          end
+    # Process transactions with rules
+    transactions.each do |transaction|
+      rules.each do |rule|
+        begin
+          rule.apply_to!(transaction)
+          processed_count += 1
+        rescue => e
+          Rails.logger.error "Failed to apply rule #{rule.id} to transaction #{transaction.id}: #{e.message}"
         end
       end
     end

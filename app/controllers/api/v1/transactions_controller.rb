@@ -55,6 +55,12 @@ class Api::V1::TransactionsController < ApplicationController
   def create
     @transaction = Transaction.new(transaction_params)
 
+    # Handle category assignment by name if provided
+    if params[:transaction][:category_name].present?
+      category = Category.find_or_create_by(name: params[:transaction][:category_name])
+      @transaction.category = category
+    end
+
     if @transaction.save
       # Apply categorization rules
       apply_rules(@transaction)
@@ -66,7 +72,7 @@ class Api::V1::TransactionsController < ApplicationController
 
       render json: { transaction: transaction_json(@transaction) }, status: :created
     else
-      render json: { errors: @transaction.errors.full_messages }, status: :unprocessable_entity
+      render json: { errors: @transaction.errors.full_messages }, status: :unprocessable_content
     end
   end
 
@@ -82,7 +88,7 @@ class Api::V1::TransactionsController < ApplicationController
 
       render json: { transaction: transaction_json(@transaction) }
     else
-      render json: { errors: @transaction.errors.full_messages }, status: :unprocessable_entity
+      render json: { errors: @transaction.errors.full_messages }, status: :unprocessable_content
     end
   end
 
@@ -132,13 +138,13 @@ class Api::V1::TransactionsController < ApplicationController
         }
       end
     rescue => e
-      render json: { error: e.message }, status: :unprocessable_entity
+      render json: { error: e.message }, status: :unprocessable_content
     end
   end
 
   def import_csv
     if params[:file].blank?
-      return render json: { error: "No CSV file provided" }, status: :unprocessable_entity
+      return render json: { error: "No CSV file provided" }, status: :unprocessable_content
     end
 
     # Check if async processing is requested
@@ -264,6 +270,12 @@ class Api::V1::TransactionsController < ApplicationController
   def apply_filters(relation)
     # Apply filters using indexed columns for optimal performance
     relation = relation.where(category_id: params[:category_id]) if params[:category_id].present?
+
+    # Filter by category name if provided
+    if params[:category].present?
+      relation = relation.joins(:category).where(categories: { name: params[:category] })
+    end
+
     relation = relation.where(status: params[:status]) if params[:status].present?
     relation = relation.by_date_range(params[:start_date], params[:end_date]) if params[:start_date] && params[:end_date]
     relation = relation.by_amount_range(params[:min_amount], params[:max_amount]) if params[:min_amount] && params[:max_amount]
@@ -299,7 +311,7 @@ class Api::V1::TransactionsController < ApplicationController
         errors: result[:errors]
       }
     rescue => e
-      render json: { error: e.message }, status: :unprocessable_entity
+      render json: { error: e.message }, status: :unprocessable_content
     end
   end
 
@@ -307,14 +319,24 @@ class Api::V1::TransactionsController < ApplicationController
     begin
       # Save uploaded file to temporary location
       temp_file = Rails.root.join("tmp", "csv_import_#{Time.current.to_i}_#{SecureRandom.hex(8)}.csv")
+
+      # Handle different file upload types
+      file_content = if params[:file].respond_to?(:read)
+                      params[:file].read
+      elsif params[:file].respond_to?(:tempfile)
+                      params[:file].tempfile.read
+      else
+                      raise "Invalid file parameter: #{params[:file].class}"
+      end
+
       File.open(temp_file, "wb") do |file|
-        file.write(params[:file].read)
+        file.write(file_content)
       end
 
       # Queue the import job
       job_id = CsvImportJob.perform_later(
         temp_file.to_s,
-        1, # Default user_id for now - implement proper authentication later
+        "anonymous", # Default user for now - implement proper authentication later
         run_anomaly_detection: params[:run_anomaly_detection] == "true"
       ).job_id
 
@@ -327,7 +349,7 @@ class Api::V1::TransactionsController < ApplicationController
     rescue => e
       # Clean up temp file if it was created
       File.delete(temp_file) if temp_file && File.exist?(temp_file)
-      render json: { error: e.message }, status: :unprocessable_entity
+      render json: { error: e.message }, status: :unprocessable_content
     end
   end
 

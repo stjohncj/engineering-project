@@ -7,7 +7,7 @@ FactoryBot.define do
     metadata { { "expected_range" => "10-100", "actual_amount" => "500" } }
     detected_at { Time.current }
 
-    association :transaction, factory: :transaction
+    association :transaction_record, factory: :transaction
 
     trait :resolved do
       resolved { true }

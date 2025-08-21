@@ -199,7 +199,7 @@
                             }, '✓')
                         ),
                         h('div', { className: 'anomaly-content' },
-                            h('h5', null, formatAnomalyType(anomaly.anomaly_type)),
+                            h('h5', null, formatAnomalyType(anomaly.type)),
                             h('p', null, anomaly.description),
                             anomaly.transaction_id && h('small', { className: 'anomaly-meta' },
                                 `Transaction ID: ${anomaly.transaction_id}`

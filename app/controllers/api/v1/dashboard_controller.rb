@@ -97,14 +97,21 @@ class Api::V1::DashboardController < ApplicationController
       transaction_date: transaction.transaction_date,
       status: transaction.status,
       category: transaction.category&.name,
-      anomaly_count: transaction.anomaly_detections.count
+      anomaly_count: transaction.anomaly_detections.count,
+      anomalies: transaction.anomaly_detections.unresolved.map { |a| 
+        {
+          id: a.id,
+          type: a.anomaly_type,
+          severity: a.severity
+        }
+      }
     }
   end
 
   def anomaly_json(anomaly)
     {
       id: anomaly.id,
-      anomaly_type: anomaly.anomaly_type,
+      type: anomaly.anomaly_type,
       severity: anomaly.severity,
       severity_label: anomaly.severity_label,
       description: anomaly.description,

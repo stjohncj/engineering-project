@@ -2,7 +2,7 @@ class AnomalyDetectionJob < ApplicationJob
   queue_as :default
 
   # Retry failed jobs up to 3 times with exponential backoff
-  retry_on StandardError, wait: :exponentially_longer, attempts: 3
+  retry_on StandardError, wait: 5.seconds, attempts: 3
 
   def perform(transaction_id)
     transaction = Transaction.find(transaction_id)

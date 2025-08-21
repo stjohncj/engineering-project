@@ -109,7 +109,7 @@ RSpec.describe Api::V1::CategoriesController, type: :controller do
 
       it 'returns an unprocessable entity response' do
         post :create, params: { category: invalid_attributes }
-        expect(response).to have_http_status(:unprocessable_entity)
+        expect(response).to have_http_status(:unprocessable_content)
       end
 
       it 'returns error messages' do
@@ -164,7 +164,7 @@ RSpec.describe Api::V1::CategoriesController, type: :controller do
     context 'with invalid parameters' do
       it 'returns an unprocessable entity response' do
         patch :update, params: { id: category.to_param, category: invalid_attributes }
-        expect(response).to have_http_status(:unprocessable_entity)
+        expect(response).to have_http_status(:unprocessable_content)
       end
 
       it 'does not update the category' do

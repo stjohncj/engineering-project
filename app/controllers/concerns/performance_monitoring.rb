@@ -9,29 +9,36 @@ module PerformanceMonitoring
   private
 
   def monitor_performance
-    start_time = Time.current
-    start_memory = get_memory_usage
+    begin
+      start_time = Time.current
+      start_memory = get_memory_usage
 
-    yield
+      begin
+        yield
+      ensure
+        begin
+          end_time = Time.current
+          end_memory = get_memory_usage
 
-    end_time = Time.current
-    end_memory = get_memory_usage
+          duration = ((end_time - start_time) * 1000).round(2) # Convert to milliseconds
+          memory_used = end_memory - start_memory
 
-    duration = ((end_time - start_time) * 1000).round(2) # Convert to milliseconds
-    memory_used = end_memory - start_memory
+          # Log performance metrics
+          log_performance_metrics(duration, memory_used, start_time)
 
-    # Log performance metrics
-    log_performance_metrics(duration, memory_used, start_time)
+          # Add performance headers to response
+          add_performance_headers(duration, memory_used)
 
-    # Add performance headers to response
-    add_performance_headers(duration, memory_used)
-
-    # Alert on slow requests
-    alert_on_slow_request(duration) if duration > slow_request_threshold
-
-  rescue => e
-    Rails.logger.error "Performance monitoring error: #{e.message}"
-    yield
+          # Alert on slow requests
+          alert_on_slow_request(duration) if duration > slow_request_threshold
+        rescue => monitoring_error
+          Rails.logger.error "Performance monitoring error: #{monitoring_error.message}"
+        end
+      end
+    rescue => e
+      Rails.logger.error "Performance monitoring error: #{e.message}"
+      yield  # Still execute the action even if monitoring setup fails
+    end
   end
 
   def log_performance_metrics(duration, memory_used, start_time)

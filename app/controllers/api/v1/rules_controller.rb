@@ -4,6 +4,11 @@ class Api::V1::RulesController < ApplicationController
   def index
     @rules = Rule.all.order(created_at: :desc)
 
+    # Filter by active status if requested
+    if params[:active].present?
+      @rules = @rules.where(active: params[:active])
+    end
+
     render json: {
       rules: @rules.map { |r| rule_json(r) }
     }
@@ -19,7 +24,7 @@ class Api::V1::RulesController < ApplicationController
     if @rule.save
       render json: { rule: rule_json(@rule) }, status: :created
     else
-      render json: { errors: @rule.errors.full_messages }, status: :unprocessable_entity
+      render json: { errors: @rule.errors }, status: :unprocessable_content
     end
   end
 
@@ -27,7 +32,7 @@ class Api::V1::RulesController < ApplicationController
     if @rule.update(rule_params)
       render json: { rule: rule_json(@rule) }
     else
-      render json: { errors: @rule.errors.full_messages }, status: :unprocessable_entity
+      render json: { errors: @rule.errors }, status: :unprocessable_content
     end
   end
 

@@ -1,5 +1,5 @@
 class Rule < ApplicationRecord
-  validates :name, presence: true
+  validates :name, presence: true, uniqueness: true
   validates :condition_field, inclusion: { in: %w[description amount transaction_date] }
   validates :condition_operator, inclusion: { in: %w[contains equals greater_than less_than] }
   validates :condition_value, presence: true

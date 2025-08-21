@@ -645,6 +645,20 @@
                 loadTransactions(1);
             }, [filters]);
 
+            const checkTransactionMatchesFilter = (transaction) => {
+                // Check if transaction matches current filter criteria
+                if (filters.status && filters.status.trim() !== '') {
+                    if (transaction.status !== filters.status) {
+                        return false;
+                    }
+                }
+                
+                // Add other filter checks if needed (severity, anomaly_type, etc.)
+                // For now, we primarily care about status changes
+                
+                return true;
+            };
+
             const handleApprove = async (transaction) => {
                 if (!confirm(`Approve transaction "${transaction.description}"?`)) return;
                 
@@ -662,7 +676,13 @@
                     });
 
                     if (response.ok) {
-                        loadTransactions(currentPage, true);
+                        // Remove the transaction from local state immediately since it no longer matches filter
+                        setTransactions(prevTransactions => 
+                            prevTransactions.filter(t => t.id !== transaction.id)
+                        );
+                        
+                        // Also reload to ensure pagination counts are correct
+                        setTimeout(() => loadTransactions(currentPage, true), 100);
                     } else {
                         const error = await response.json();
                         alert('Error approving transaction: ' + (error.errors?.join(', ') || error.error));
@@ -685,7 +705,13 @@
                     });
 
                     if (response.ok) {
-                        loadTransactions(currentPage, true);
+                        // Remove the transaction from local state immediately since it's deleted
+                        setTransactions(prevTransactions => 
+                            prevTransactions.filter(t => t.id !== transaction.id)
+                        );
+                        
+                        // Also reload to ensure pagination counts are correct
+                        setTimeout(() => loadTransactions(currentPage, true), 100);
                     } else {
                         const error = await response.json();
                         alert('Error deleting transaction: ' + (error.error || 'Unknown error'));
@@ -706,7 +732,22 @@
                     });
 
                     if (response.ok) {
-                        loadTransactions(currentPage, true);
+                        // Update the transaction in local state by removing the resolved anomaly
+                        setTransactions(prevTransactions => 
+                            prevTransactions.map(t => {
+                                if (t.anomalies && t.anomalies.some(a => a.id === anomalyId)) {
+                                    const updatedTransaction = {
+                                        ...t,
+                                        anomalies: t.anomalies.filter(a => a.id !== anomalyId)
+                                    };
+                                    return updatedTransaction;
+                                }
+                                return t;
+                            })
+                        );
+                        
+                        // Also reload to ensure pagination counts are correct
+                        setTimeout(() => loadTransactions(currentPage, true), 100);
                     } else {
                         const error = await response.json();
                         alert('Error resolving anomaly: ' + (error.error || 'Unknown error'));
@@ -717,8 +758,25 @@
             };
 
             const handleSaveEdit = (updatedTransaction) => {
-                // Force reload with cache busting to ensure fresh data
-                loadTransactions(currentPage, true);
+                // Check if the updated transaction still matches current filters
+                const stillMatchesFilter = checkTransactionMatchesFilter(updatedTransaction);
+                
+                if (stillMatchesFilter) {
+                    // Update the transaction in local state immediately
+                    setTransactions(prevTransactions => 
+                        prevTransactions.map(t => 
+                            t.id === updatedTransaction.id ? updatedTransaction : t
+                        )
+                    );
+                } else {
+                    // Remove from local state since it no longer matches filter
+                    setTransactions(prevTransactions => 
+                        prevTransactions.filter(t => t.id !== updatedTransaction.id)
+                    );
+                }
+                
+                // Also reload to ensure pagination counts are correct
+                setTimeout(() => loadTransactions(currentPage, true), 100);
             };
 
             const getPageTitle = () => {

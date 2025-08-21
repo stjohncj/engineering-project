@@ -1,6 +1,5 @@
 class Category < ApplicationRecord
   has_many :transactions, dependent: :destroy
-  has_many :rules, dependent: :destroy
 
   validates :name, presence: true, uniqueness: { case_sensitive: false }
   validates :color, format: { with: /\A#[0-9A-Fa-f]{6}\z/, message: "must be a valid hex color" }, allow_blank: true

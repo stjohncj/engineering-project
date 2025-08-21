@@ -9,28 +9,32 @@ module QueryCounter
 
   def count_queries
     queries_before = query_count_start
+    
+    begin
+      yield
+    ensure
+      queries_after = query_count_end
+      total_queries = queries_after - queries_before
 
-    yield
+      # Add query count to response headers if response is available
+      response.headers["X-Query-Count"] = total_queries.to_s if response&.headers
 
-    queries_after = query_count_end
-    total_queries = queries_after - queries_before
+      # Log warning for potential N+1 queries
+      if total_queries > query_warning_threshold
+        Rails.logger.warn "HIGH_QUERY_COUNT: #{controller_name}##{action_name} executed #{total_queries} queries (threshold: #{query_warning_threshold})"
+        log_query_details if Rails.env.development?
+      end
 
-    # Add query count to response headers
-    response.headers["X-Query-Count"] = total_queries.to_s
-
-    # Log warning for potential N+1 queries
-    if total_queries > query_warning_threshold
-      Rails.logger.warn "HIGH_QUERY_COUNT: #{controller_name}##{action_name} executed #{total_queries} queries (threshold: #{query_warning_threshold})"
-      log_query_details if Rails.env.development?
+      # Clean up thread-local storage
+      Thread.current[:query_count] = nil
+      Thread.current[:ar_query_log] = nil
+      
+      # Unsubscribe from notifications
+      ActiveSupport::Notifications.unsubscribe(@query_subscriber) if @query_subscriber
     end
-
   rescue => e
     Rails.logger.error "Query counting error: #{e.message}"
-    yield
-  ensure
-    # Clean up thread-local storage
-    Thread.current[:query_count] = nil
-    Thread.current[:ar_query_log] = nil
+    yield # Still execute the action even if query counting fails
   end
 
   def query_count_start
@@ -41,6 +45,10 @@ module QueryCounter
     @query_subscriber = ActiveSupport::Notifications.subscribe("sql.active_record") do |name, start, finish, id, payload|
       # Skip schema queries and cached queries
       unless payload[:name] =~ /^(SCHEMA|CACHE)/
+        # Initialize if nil (defensive programming for threading issues)
+        Thread.current[:query_count] ||= 0
+        Thread.current[:ar_query_log] ||= []
+        
         Thread.current[:query_count] += 1
 
         # Store query details for debugging
@@ -57,16 +65,14 @@ module QueryCounter
   end
 
   def query_count_end
-    # Unsubscribe from notifications
-    ActiveSupport::Notifications.unsubscribe(@query_subscriber) if @query_subscriber
-
     Thread.current[:query_count] || 0
   end
 
   def log_query_details
     queries = Thread.current[:ar_query_log] || []
+    action = action_name.present? ? action_name : "unknown_action"
 
-    Rails.logger.debug "QUERY_DETAILS for #{controller_name}##{action_name}:"
+    Rails.logger.debug "QUERY_DETAILS for #{controller_name}##{action}:"
     queries.each_with_index do |query, index|
       Rails.logger.debug "  #{index + 1}. [#{query[:duration].round(2)}ms] #{query[:name]}: #{query[:sql].truncate(200)}"
     end

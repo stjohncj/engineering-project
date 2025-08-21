@@ -1,7 +1,7 @@
 class Api::V1::AnomalyDetectionsController < ApplicationController
   include Paginatable
 
-  before_action :set_anomaly_detection, only: [ :show, :update, :resolve ]
+  before_action :set_anomaly_detection, only: [ :show, :update, :destroy, :resolve ]
 
   def index
     # Build query with eager loading
@@ -9,11 +9,18 @@ class Api::V1::AnomalyDetectionsController < ApplicationController
 
     # Apply filters efficiently
     @anomaly_detections = @anomaly_detections.where(resolved: false) if params[:unresolved] == "true"
+    @anomaly_detections = @anomaly_detections.where(resolved: true) if params[:resolved] == "true"
     @anomaly_detections = @anomaly_detections.by_severity(params[:severity]) if params[:severity].present?
+    @anomaly_detections = @anomaly_detections.where("severity >= ?", params[:min_severity]) if params[:min_severity].present?
+    @anomaly_detections = @anomaly_detections.where("severity <= ?", params[:max_severity]) if params[:max_severity].present?
     @anomaly_detections = @anomaly_detections.by_type(params[:anomaly_type]) if params[:anomaly_type].present?
 
-    # Order by priority (severity desc, then creation time)
-    @anomaly_detections = @anomaly_detections.order(severity: :desc, created_at: :desc)
+    # Order by priority (severity desc, then creation time) unless otherwise specified
+    if params[:order_by] == "detected_at"
+      @anomaly_detections = @anomaly_detections.order(detected_at: :desc, created_at: :desc)
+    else
+      @anomaly_detections = @anomaly_detections.order(severity: :desc, created_at: :desc)
+    end
 
     # Get current page and per_page params
     page = params[:page]&.to_i || 1
@@ -53,29 +60,52 @@ class Api::V1::AnomalyDetectionsController < ApplicationController
     render json: { anomaly_detection: anomaly_detection_json(@anomaly_detection, include_transaction: true) }
   end
 
+  def create
+    @anomaly_detection = AnomalyDetection.new(anomaly_detection_params)
+    @anomaly_detection.detected_at = Time.current
+
+    if @anomaly_detection.save
+      # Invalidate relevant caches
+      invalidate_anomaly_caches
+
+      render json: { anomaly_detection: anomaly_detection_json(@anomaly_detection) }, status: :created
+    else
+      render json: { errors: @anomaly_detection.errors.full_messages }, status: :unprocessable_content
+    end
+  end
+
   def update
     if @anomaly_detection.update(anomaly_detection_params)
       render json: { anomaly_detection: anomaly_detection_json(@anomaly_detection) }
     else
-      render json: { errors: @anomaly_detection.errors.full_messages }, status: :unprocessable_entity
+      render json: { errors: @anomaly_detection.errors.full_messages }, status: :unprocessable_content
     end
   end
 
   def resolve
     @anomaly_detection.resolve!
-    
+
     # Invalidate relevant caches
     invalidate_anomaly_caches
-    
+
     # Set no-cache headers to prevent stale data in subsequent requests
     response.headers["Cache-Control"] = "no-cache, no-store, must-revalidate"
     response.headers["Pragma"] = "no-cache"
     response.headers["Expires"] = "0"
-    
+
     render json: {
       message: "Anomaly resolved successfully",
       anomaly_detection: anomaly_detection_json(@anomaly_detection)
     }
+  end
+
+  def destroy
+    @anomaly_detection.destroy
+
+    # Invalidate relevant caches
+    invalidate_anomaly_caches
+
+    head :no_content
   end
 
   private
@@ -87,7 +117,7 @@ class Api::V1::AnomalyDetectionsController < ApplicationController
   end
 
   def anomaly_detection_params
-    params.require(:anomaly_detection).permit(:resolved)
+    params.require(:anomaly_detection).permit(:transaction_record_id, :anomaly_type, :severity, :description, :resolved, :metadata)
   end
 
   def anomaly_detection_json(anomaly_detection, include_transaction: false)
@@ -98,6 +128,9 @@ class Api::V1::AnomalyDetectionsController < ApplicationController
       severity_label: anomaly_detection.severity_label,
       description: anomaly_detection.description,
       resolved: anomaly_detection.resolved,
+      detected_at: anomaly_detection.detected_at,
+      resolved_at: anomaly_detection.resolved_at,
+      metadata: anomaly_detection.metadata,
       created_at: anomaly_detection.created_at,
       updated_at: anomaly_detection.updated_at,
       transaction_id: anomaly_detection.transaction_record_id
@@ -130,7 +163,7 @@ class Api::V1::AnomalyDetectionsController < ApplicationController
     # Clear anomaly detection caches
     Rails.cache.delete_matched("anomaly_detections_*")
     Rails.cache.delete_matched("transactions_anomalies_*")
-    
+
     # Clear transaction index caches (pattern-based deletion)
     Rails.cache.delete_matched("transactions_index_*")
     Rails.cache.delete_matched("total_transactions_filtered_*")

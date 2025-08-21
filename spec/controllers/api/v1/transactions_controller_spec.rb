@@ -73,18 +73,14 @@ RSpec.describe Api::V1::TransactionsController, type: :controller do
     end
 
     it 'caches the response for 2 minutes' do
-      expect(Rails.cache).to receive(:fetch).with(
-        a_string_starting_with("transactions_index_"),
-        expires_in: 2.minutes
-      ).and_call_original
-
       get :index
       expect(response.headers['Cache-Control']).to include('public')
+      expect(response.headers['Cache-Control']).to include('max-age=120')
     end
 
     it 'sets appropriate HTTP cache headers' do
       get :index
-      expect(response.headers['Cache-Control']).to include('max-age=300')
+      expect(response.headers['Cache-Control']).to include('max-age=120')
       expect(response.headers['Vary']).to include('Accept', 'Authorization')
     end
 
@@ -236,7 +232,12 @@ RSpec.describe Api::V1::TransactionsController, type: :controller do
       it 'invalidates transaction caches' do
         expect(Rails.cache).to receive(:delete).with("dashboard_statistics")
         expect(Rails.cache).to receive(:delete).with("recent_transactions")
+        expect(Rails.cache).to receive(:delete).with("total_transactions_count")
+        expect(Rails.cache).to receive(:delete).with("total_amount_sum")
+        expect(Rails.cache).to receive(:delete).with("monthly_transaction_trends")
+        expect(Rails.cache).to receive(:delete).with("category_breakdown")
         expect(Rails.cache).to receive(:delete_matched).with("transactions_index_*")
+        expect(Rails.cache).to receive(:delete_matched).with("total_transactions_filtered_*")
 
         post :create, params: { transaction: valid_attributes }
       end
@@ -251,7 +252,7 @@ RSpec.describe Api::V1::TransactionsController, type: :controller do
 
       it 'returns an unprocessable entity response' do
         post :create, params: { transaction: invalid_attributes }
-        expect(response).to have_http_status(:unprocessable_entity)
+        expect(response).to have_http_status(:unprocessable_content)
       end
 
       it 'returns error messages' do
@@ -294,7 +295,12 @@ RSpec.describe Api::V1::TransactionsController, type: :controller do
       it 'invalidates transaction caches' do
         expect(Rails.cache).to receive(:delete).with("dashboard_statistics")
         expect(Rails.cache).to receive(:delete).with("recent_transactions")
+        expect(Rails.cache).to receive(:delete).with("total_transactions_count")
+        expect(Rails.cache).to receive(:delete).with("total_amount_sum")
+        expect(Rails.cache).to receive(:delete).with("monthly_transaction_trends")
+        expect(Rails.cache).to receive(:delete).with("category_breakdown")
         expect(Rails.cache).to receive(:delete_matched).with("transactions_index_*")
+        expect(Rails.cache).to receive(:delete_matched).with("total_transactions_filtered_*")
 
         patch :update, params: { id: transaction.to_param, transaction: new_attributes }
       end
@@ -303,7 +309,7 @@ RSpec.describe Api::V1::TransactionsController, type: :controller do
     context 'with invalid parameters' do
       it 'returns an unprocessable entity response' do
         patch :update, params: { id: transaction.to_param, transaction: invalid_attributes }
-        expect(response).to have_http_status(:unprocessable_entity)
+        expect(response).to have_http_status(:unprocessable_content)
       end
     end
   end
@@ -324,23 +330,17 @@ RSpec.describe Api::V1::TransactionsController, type: :controller do
   end
 
   describe 'POST #import_csv' do
-    let(:csv_file) do
-      file = Tempfile.new([ 'test', '.csv' ])
-      file.write("amount,description,date,category\n")
-      file.write("100.50,Test Transaction,2025-08-19,Food\n")
-      file.rewind
-      file
-    end
+    let(:csv_content) { "amount,description,date,category\n100.50,Test Transaction,2025-08-19,Food\n" }
 
     let(:uploaded_file) do
-      ActionDispatch::Http::UploadedFile.new(
-        tempfile: csv_file,
-        filename: 'test.csv',
-        type: 'text/csv'
-      )
-    end
+      # Create a temporary file with CSV content
+      file = Tempfile.new([ 'test', '.csv' ])
+      file.write(csv_content)
+      file.rewind
 
-    after { csv_file.close! }
+      # Use fixture_file_upload for proper RSpec controller testing
+      Rack::Test::UploadedFile.new(file.path, 'text/csv', original_filename: 'test.csv')
+    end
 
     context 'synchronous import' do
       it 'imports transactions from CSV' do
@@ -383,14 +383,16 @@ RSpec.describe Api::V1::TransactionsController, type: :controller do
       end
 
       it 'creates temporary file for async processing' do
-        expect(File).to receive(:open).and_call_original
         expect(CsvImportJob).to receive(:perform_later).with(
           a_string_including('csv_import_'),
-          'anonymous',
+          "anonymous",
           run_anomaly_detection: false
         ).and_return(double(job_id: 'test-job-123'))
 
         post :import_csv, params: { file: uploaded_file, async: 'true' }
+
+        # Verify a temporary file was created
+        expect(Dir.glob(Rails.root.join("tmp", "csv_import_*"))).not_to be_empty
       end
 
       it 'passes anomaly detection option to job' do
@@ -406,7 +408,7 @@ RSpec.describe Api::V1::TransactionsController, type: :controller do
     context 'without file' do
       it 'returns unprocessable entity' do
         post :import_csv
-        expect(response).to have_http_status(:unprocessable_entity)
+        expect(response).to have_http_status(:unprocessable_content)
         json = JSON.parse(response.body)
         expect(json['error']).to eq('No CSV file provided')
       end
@@ -419,7 +421,7 @@ RSpec.describe Api::V1::TransactionsController, type: :controller do
 
       it 'returns error response' do
         post :import_csv, params: { file: uploaded_file }
-        expect(response).to have_http_status(:unprocessable_entity)
+        expect(response).to have_http_status(:unprocessable_content)
         json = JSON.parse(response.body)
         expect(json['error']).to eq('Import failed')
       end

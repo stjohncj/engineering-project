@@ -20,13 +20,13 @@ class Api::V1::CategoriesController < ApplicationController
   end
 
   def show
-    # Cache individual category with stats
+    # Cache individual category with stats and transactions
     category_data = Rails.cache.fetch("category_#{@category.id}_with_stats", expires_in: 15.minutes) do
       category_with_stats = Category.left_joins(:transactions)
                                    .select("categories.*, COUNT(transactions.id) as transaction_count, COALESCE(SUM(transactions.amount), 0) as total_amount")
                                    .group("categories.id")
                                    .find(@category.id)
-      category_json(category_with_stats, include_stats: true)
+      category_json(category_with_stats, include_stats: true, include_transactions: true)
     end
 
     expires_in 15.minutes, public: true
@@ -42,7 +42,7 @@ class Api::V1::CategoriesController < ApplicationController
 
       render json: { category: category_json(@category) }, status: :created
     else
-      render json: { errors: @category.errors.full_messages }, status: :unprocessable_entity
+      render json: { errors: @category.errors }, status: :unprocessable_content
     end
   end
 
@@ -53,7 +53,7 @@ class Api::V1::CategoriesController < ApplicationController
 
       render json: { category: category_json(@category) }
     else
-      render json: { errors: @category.errors.full_messages }, status: :unprocessable_entity
+      render json: { errors: @category.errors }, status: :unprocessable_content
     end
   end
 
@@ -74,7 +74,7 @@ class Api::V1::CategoriesController < ApplicationController
     params.require(:category).permit(:name, :description, :color)
   end
 
-  def category_json(category, include_stats: false)
+  def category_json(category, include_stats: false, include_transactions: false)
     json = {
       id: category.id,
       name: category.name,
@@ -87,18 +87,31 @@ class Api::V1::CategoriesController < ApplicationController
     if include_stats
       # Use attributes from SQL aggregation if available, otherwise calculate
       if category.respond_to?(:transaction_count)
-        json[:stats] = {
-          transaction_count: category.transaction_count.to_i,
-          total_amount: category.total_amount.to_f
-        }
+        json[:transaction_count] = category.transaction_count.to_i
+        json[:total_amount] = category.total_amount.to_f
       else
         # Fallback for individual categories without aggregation
-        json[:stats] = Rails.cache.fetch("category_#{category.id}_stats", expires_in: 10.minutes) do
+        stats = Rails.cache.fetch("category_#{category.id}_stats", expires_in: 10.minutes) do
           {
             transaction_count: category.transactions.count,
             total_amount: category.transactions.sum(:amount).to_f
           }
         end
+        json[:transaction_count] = stats[:transaction_count]
+        json[:total_amount] = stats[:total_amount]
+      end
+    end
+
+    if include_transactions
+      json[:transactions] = category.transactions.includes(:anomaly_detections).map do |transaction|
+        {
+          id: transaction.id,
+          amount: transaction.amount.to_f,
+          description: transaction.description,
+          transaction_date: transaction.transaction_date,
+          status: transaction.status,
+          anomaly_count: transaction.anomaly_detections.count
+        }
       end
     end
 

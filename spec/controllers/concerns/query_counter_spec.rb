@@ -91,6 +91,10 @@ RSpec.describe QueryCounter, type: :controller do
     end
 
     context 'when query counting is disabled' do
+      before do
+        allow(controller).to receive(:should_count_queries?).and_return(false)
+      end
+
       it 'does not add query count headers' do
         get :database_action # count_queries param not set
 
@@ -202,6 +206,8 @@ RSpec.describe QueryCounter, type: :controller do
         }
       ]
 
+      allow(controller_instance).to receive(:action_name).and_return("database_action")
+      
       expect(Rails.logger).to receive(:debug).with("QUERY_DETAILS for anonymous#database_action:")
       expect(Rails.logger).to receive(:debug).with("  1. [5.23ms] Transaction Count: SELECT COUNT(*) FROM transactions")
       expect(Rails.logger).to receive(:debug).with("  2. [12.45ms] Transaction Load: SELECT * FROM transactions LIMIT 10")
@@ -221,6 +227,8 @@ RSpec.describe QueryCounter, type: :controller do
         }
       ]
 
+      allow(controller_instance).to receive(:action_name).and_return("database_action")
+      
       expect(Rails.logger).to receive(:debug).with("QUERY_DETAILS for anonymous#database_action:")
       expect(Rails.logger).to receive(:debug) do |message|
         expect(message).to include('[10.0ms] Long Query:')
@@ -271,8 +279,8 @@ RSpec.describe QueryCounter, type: :controller do
 
   describe 'ActiveRecord integration' do
     it 'subscribes to ActiveRecord SQL notifications' do
-      expect(ActiveSupport::Notifications).to receive(:subscribe).with('sql.active_record')
-      expect(ActiveSupport::Notifications).to receive(:unsubscribe)
+      expect(ActiveSupport::Notifications).to receive(:subscribe).with('sql.active_record').and_call_original
+      expect(ActiveSupport::Notifications).to receive(:unsubscribe).and_call_original
 
       get :database_action, params: { count_queries: 'true' }
     end

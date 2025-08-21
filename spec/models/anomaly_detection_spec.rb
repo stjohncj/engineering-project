@@ -22,11 +22,11 @@ RSpec.describe AnomalyDetection, type: :model do
     it 'requires severity between 1 and 5' do
       anomaly = build(:anomaly_detection, severity: 0)
       expect(anomaly).not_to be_valid
-      expect(anomaly.errors[:severity]).to include('must be greater than or equal to 1')
+      expect(anomaly.errors[:severity]).to include('is not included in the list')
 
       anomaly = build(:anomaly_detection, severity: 6)
       expect(anomaly).not_to be_valid
-      expect(anomaly.errors[:severity]).to include('must be less than or equal to 5')
+      expect(anomaly.errors[:severity]).to include('is not included in the list')
 
       anomaly = build(:anomaly_detection, severity: 3)
       expect(anomaly).to be_valid
@@ -35,9 +35,9 @@ RSpec.describe AnomalyDetection, type: :model do
 
   describe 'associations' do
     it 'belongs to transaction' do
-      association = described_class.reflect_on_association(:transaction)
+      association = described_class.reflect_on_association(:transaction_record)
       expect(association.macro).to eq(:belongs_to)
-      expect(association.options[:foreign_key]).to eq(:transaction_record_id)
+      expect(association.class_name).to eq('Transaction')
     end
   end
 

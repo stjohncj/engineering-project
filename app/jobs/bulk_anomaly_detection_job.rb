@@ -1,7 +1,7 @@
 class BulkAnomalyDetectionJob < ApplicationJob
   queue_as :default
 
-  retry_on StandardError, wait: :exponentially_longer, attempts: 3
+  retry_on StandardError, wait: 5.seconds, attempts: 3
 
   def perform(transaction_ids)
     processed_count = 0

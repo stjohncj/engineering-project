@@ -18,7 +18,7 @@ RSpec.describe AnomalyDetectionService, 'transaction flagging' do
 
         # Should detect anomaly and flag transaction
         expect(anomalies).not_to be_empty
-        expect(anomalies.first[:type]).to eq('incomplete_metadata')
+        expect(anomalies.first.anomaly_type).to eq('incomplete_metadata')
         expect(transaction.reload.status).to eq('flagged')
       end
 
@@ -40,7 +40,7 @@ RSpec.describe AnomalyDetectionService, 'transaction flagging' do
 
         # Should detect anomaly and flag transaction
         expect(anomalies).not_to be_empty
-        expect(anomalies.any? { |a| a[:type] == 'unusual_amount' }).to be true
+        expect(anomalies.any? { |a| a.anomaly_type == 'unusual_amount' }).to be true
         expect(transaction.reload.status).to eq('flagged')
       end
 
@@ -67,7 +67,7 @@ RSpec.describe AnomalyDetectionService, 'transaction flagging' do
 
         # Should detect anomaly and flag transaction
         expect(anomalies).not_to be_empty
-        expect(anomalies.any? { |a| a[:type] == 'potential_duplicate' }).to be true
+        expect(anomalies.any? { |a| a.anomaly_type == 'potential_duplicate' }).to be true
         expect(duplicate.reload.status).to eq('flagged')
       end
 
@@ -105,7 +105,7 @@ RSpec.describe AnomalyDetectionService, 'transaction flagging' do
         anomalies = service.detect_and_flag
 
         # Should flag even low severity anomalies
-        expect(anomalies.first[:severity]).to eq(2)  # Low severity
+        expect(anomalies.first.severity).to eq(2)  # Low severity
         expect(transaction.reload.status).to eq('flagged')
       end
     end

@@ -27,23 +27,14 @@ RSpec.describe Category, type: :model do
       expect(association.macro).to eq(:has_many)
     end
 
-    it 'has many rules' do
-      association = described_class.reflect_on_association(:rules)
-      expect(association.macro).to eq(:has_many)
-    end
+    # Category doesn't have rules association in current implementation
+    # Rules reference categories through action_value field
 
     it 'destroys dependent transactions when deleted' do
       category = create(:category)
       transaction = create(:transaction, category: category)
 
       expect { category.destroy }.to change(Transaction, :count).by(-1)
-    end
-
-    it 'destroys dependent rules when deleted' do
-      category = create(:category)
-      rule = create(:rule, category: category)
-
-      expect { category.destroy }.to change(Rule, :count).by(-1)
     end
   end
 
