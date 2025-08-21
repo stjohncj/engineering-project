@@ -595,7 +595,7 @@
                 anomaly_type: ''
             });
 
-            const loadTransactions = async (page = 1) => {
+            const loadTransactions = async (page = 1, bustCache = false) => {
                 try {
                     setLoading(true);
                     const params = new URLSearchParams({
@@ -615,7 +615,20 @@
                         params.append('show_all', 'true');
                     }
                     
-                    const response = await fetch(`/api/v1/transactions/anomalies?${params}`);
+                    // Add cache busting parameter when needed
+                    if (bustCache) {
+                        params.append('_cache_bust', Date.now().toString());
+                    }
+                    
+                    const headers = {};
+                    if (bustCache) {
+                        headers['Cache-Control'] = 'no-cache';
+                        headers['Pragma'] = 'no-cache';
+                    }
+                    
+                    const response = await fetch(`/api/v1/transactions/anomalies?${params}`, {
+                        headers: headers
+                    });
                     const data = await response.json();
                     setTransactions(data.transactions || []);
                     setPagination(data.pagination || {});
@@ -649,7 +662,7 @@
                     });
 
                     if (response.ok) {
-                        loadTransactions(currentPage);
+                        loadTransactions(currentPage, true);
                     } else {
                         const error = await response.json();
                         alert('Error approving transaction: ' + (error.errors?.join(', ') || error.error));
@@ -672,7 +685,7 @@
                     });
 
                     if (response.ok) {
-                        loadTransactions(currentPage);
+                        loadTransactions(currentPage, true);
                     } else {
                         const error = await response.json();
                         alert('Error deleting transaction: ' + (error.error || 'Unknown error'));
@@ -693,7 +706,7 @@
                     });
 
                     if (response.ok) {
-                        loadTransactions(currentPage);
+                        loadTransactions(currentPage, true);
                     } else {
                         const error = await response.json();
                         alert('Error resolving anomaly: ' + (error.error || 'Unknown error'));
@@ -704,7 +717,8 @@
             };
 
             const handleSaveEdit = (updatedTransaction) => {
-                loadTransactions(currentPage);
+                // Force reload with cache busting to ensure fresh data
+                loadTransactions(currentPage, true);
             };
 
             const getPageTitle = () => {
