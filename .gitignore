@@ -49,6 +49,7 @@ Thumbs.db
 .idea/
 *.sublime-project
 *.sublime-workspace
+*.code-workspace
 
 # Bootsnap cache
 /tmp/cache/bootsnap/

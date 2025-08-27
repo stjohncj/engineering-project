@@ -154,6 +154,9 @@ class AnomalyDetectionService
     }
   end
 
+  # A Z-score is calculated by subtracting the mean (μ) from a raw score (x) and then dividing the result by the standard deviation (σ),
+  # represented by the formula z = (x - μ) / σ.
+  # This value indicates how many standard deviations a particular data point is away from the population mean.
   def calculate_amount_anomaly_severity(amount, stats)
     z_score = (amount - stats[:mean]) / stats[:std_dev]
     abs_z_score = z_score.abs
