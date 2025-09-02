@@ -1,0 +1,748 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Bookkeeping System Dashboard</title>
+    <%= csrf_meta_tags %>
+    <%= csp_meta_tag %>
+    <%= stylesheet_link_tag "application", "data-turbo-track": "reload" %>
+    
+    <!-- React from CDN -->
+    <script crossorigin src="https://unpkg.com/react@18/umd/react.development.js"></script>
+    <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.development.js"></script>
+    
+    <!-- Chart.js from CDN -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    
+    <style>
+        body {
+            margin: 0;
+            padding: 0;
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+        }
+        
+        .header-content {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            flex-wrap: wrap;
+            gap: 1rem;
+        }
+        
+        .polling-controls {
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+            background: rgba(255, 255, 255, 0.1);
+            padding: 0.75rem 1rem;
+            border-radius: 8px;
+            backdrop-filter: blur(10px);
+        }
+        
+        .polling-status {
+            display: flex;
+            flex-direction: column;
+            gap: 0.25rem;
+            color: white;
+        }
+        
+        .status-indicator {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            display: inline-block;
+            margin-right: 0.5rem;
+            animation: pulse 2s infinite;
+        }
+        
+        .status-indicator.active {
+            background-color: #10b981;
+        }
+        
+        .status-indicator.inactive {
+            background-color: #ef4444;
+        }
+        
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.5; }
+        }
+        
+        .polling-buttons {
+            display: flex;
+            gap: 0.5rem;
+        }
+        
+        .polling-toggle, .refresh-btn {
+            background: rgba(255, 255, 255, 0.2);
+            border: 1px solid rgba(255, 255, 255, 0.3);
+            color: white;
+            padding: 0.5rem;
+            border-radius: 6px;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            font-size: 1rem;
+        }
+        
+        .polling-toggle:hover, .refresh-btn:hover {
+            background: rgba(255, 255, 255, 0.3);
+            transform: translateY(-1px);
+        }
+        
+        .polling-toggle.active {
+            background: rgba(16, 185, 129, 0.3);
+            border-color: rgba(16, 185, 129, 0.5);
+        }
+        
+        .polling-toggle.inactive {
+            background: rgba(239, 68, 68, 0.3);
+            border-color: rgba(239, 68, 68, 0.5);
+        }
+        
+        .polling-status small {
+            opacity: 0.8;
+            font-size: 0.75rem;
+        }
+        
+        .action-btn.categories {
+            background: #10b981;
+            color: white;
+        }
+        
+        .action-btn.categories:hover {
+            background: #059669;
+        }
+        
+        .action-btn.rules {
+            background: #8b5cf6;
+            color: white;
+        }
+        
+        .action-btn.rules:hover {
+            background: #7c3aed;
+        }
+        
+        .spending-summary {
+            background: white;
+            border-radius: 12px;
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+            padding: 1.5rem;
+            margin-top: 2rem;
+        }
+        
+        .spending-summary h3 {
+            color: #374151;
+            margin: 0 0 1.5rem 0;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+        
+        .chart-container {
+            position: relative;
+            height: 400px;
+            margin-bottom: 1rem;
+        }
+        
+        .spending-grid {
+            display: grid;
+            grid-template-columns: 2fr 1fr;
+            gap: 2rem;
+            align-items: start;
+        }
+        
+        .chart-section {
+            display: flex;
+            flex-direction: column;
+        }
+        
+        .legend-section {
+            display: flex;
+            flex-direction: column;
+            gap: 1rem;
+        }
+        
+        .category-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 0.75rem;
+            background: #f9fafb;
+            border-radius: 8px;
+            border-left: 4px solid;
+        }
+        
+        .category-info {
+            display: flex;
+            flex-direction: column;
+            gap: 0.25rem;
+        }
+        
+        .category-name {
+            font-weight: 600;
+            color: #374151;
+        }
+        
+        .category-count {
+            font-size: 0.875rem;
+            color: #6b7280;
+        }
+        
+        .category-amount {
+            font-weight: 600;
+            color: #059669;
+            font-size: 1.1rem;
+        }
+        
+        .empty-chart {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            height: 400px;
+            color: #6b7280;
+            background: #f9fafb;
+            border-radius: 8px;
+            border: 2px dashed #d1d5db;
+        }
+        
+        @media (max-width: 768px) {
+            .spending-grid {
+                grid-template-columns: 1fr;
+            }
+            
+            .chart-container {
+                height: 300px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div id="react-app"></div>
+    
+    <script>
+        const { useState, useEffect, createElement: h } = React;
+        
+        // Utility functions
+        const formatCurrency = (amount) => {
+            return new Intl.NumberFormat('en-US', {
+                style: 'currency',
+                currency: 'USD'
+            }).format(amount);
+        };
+
+        const formatDate = (dateString) => {
+            return new Date(dateString).toLocaleDateString('en-US', {
+                year: 'numeric',
+                month: 'short',
+                day: 'numeric'
+            });
+        };
+
+        // StatsCards Component
+        const StatsCards = ({ stats, loading }) => {
+            const statsConfig = [
+                { key: 'transactions', label: 'Total Transactions', icon: '💰', color: 'blue' },
+                { key: 'categories', label: 'Categories', icon: '📂', color: 'green' },
+                { key: 'anomalies', label: 'Unresolved Anomalies', icon: '⚠️', color: 'orange' },
+                { key: 'rules', label: 'Active Rules', icon: '⚙️', color: 'purple' }
+            ];
+
+            return h('div', { className: 'stats-grid' },
+                statsConfig.map(({ key, label, icon, color }) =>
+                    h('div', { key, className: `stat-card ${color}` },
+                        h('div', { className: 'stat-icon' }, icon),
+                        h('div', { className: 'stat-number' }, loading ? '-' : stats[key]),
+                        h('div', { className: 'stat-label' }, label)
+                    )
+                )
+            );
+        };
+
+        // TransactionList Component
+        const TransactionList = ({ limit = 5, pollInterval = 30000 }) => {
+            const [transactions, setTransactions] = useState([]);
+            const [loading, setLoading] = useState(true);
+            const [lastUpdate, setLastUpdate] = useState(null);
+
+            const loadTransactions = async () => {
+                try {
+                    setLoading(true);
+                    // Add cache-busting parameter to ensure fresh data
+                    const cacheBuster = Date.now();
+                    const response = await fetch(`/api/v1/dashboard/recent_transactions?_cb=${cacheBuster}`, {
+                        headers: {
+                            'Cache-Control': 'no-cache',
+                            'Pragma': 'no-cache'
+                        }
+                    });
+                    const data = await response.json();
+                    setTransactions(data.transactions || []);
+                    setLastUpdate(new Date());
+                } catch (error) {
+                    console.error('Error loading transactions:', error);
+                } finally {
+                    setLoading(false);
+                }
+            };
+
+            useEffect(() => {
+                loadTransactions();
+                
+                // Set up polling interval
+                const interval = setInterval(loadTransactions, pollInterval);
+                
+                // Cleanup interval on unmount
+                return () => clearInterval(interval);
+            }, [limit, pollInterval]);
+
+            const getStatusBadgeClass = (status) => {
+                const statusClasses = {
+                    pending: 'status-pending',
+                    approved: 'status-approved',
+                    flagged: 'status-flagged',
+                    rejected: 'status-rejected'
+                };
+                return statusClasses[status] || 'status-pending';
+            };
+
+            if (loading) {
+                return h('div', { className: 'loading' }, 'Loading transactions...');
+            }
+
+            if (transactions.length === 0) {
+                return h('div', { className: 'empty-state' }, 'No transactions found.');
+            }
+
+            return h('div', { className: 'transaction-list' },
+                transactions.map(transaction =>
+                    h('div', { key: transaction.id, className: 'transaction-item' },
+                        h('div', { className: 'transaction-info' },
+                            h('h4', null, transaction.description),
+                            h('p', { className: 'transaction-meta' },
+                                `${formatDate(transaction.transaction_date)} • ${transaction.category || 'Uncategorized'}`
+                            ),
+                            h('span', { className: `status-badge ${getStatusBadgeClass(transaction.status)}` },
+                                transaction.status
+                            ),
+                            transaction.anomalies && transaction.anomalies.length > 0 && 
+                                h('span', { className: 'anomaly-indicator' },
+                                    `⚠️ ${transaction.anomalies.length} anomal${transaction.anomalies.length > 1 ? 'ies' : 'y'}`
+                                )
+                        ),
+                        h('div', { 
+                            className: `transaction-amount ${transaction.amount >= 0 ? 'positive' : 'negative'}` 
+                        }, formatCurrency(Math.abs(transaction.amount)))
+                    )
+                )
+            );
+        };
+
+        // AnomalyList Component
+        const AnomalyList = ({ limit = 5, pollInterval = 30000 }) => {
+            const [anomalies, setAnomalies] = useState([]);
+            const [loading, setLoading] = useState(true);
+            const [lastUpdate, setLastUpdate] = useState(null);
+
+            const loadAnomalies = async () => {
+                try {
+                    setLoading(true);
+                    // Add cache-busting parameter to ensure fresh data
+                    const cacheBuster = Date.now();
+                    const response = await fetch(`/api/v1/dashboard/active_anomalies?_cb=${cacheBuster}`, {
+                        headers: {
+                            'Cache-Control': 'no-cache',
+                            'Pragma': 'no-cache'
+                        }
+                    });
+                    const data = await response.json();
+                    setAnomalies(data.anomalies || []);
+                    setLastUpdate(new Date());
+                } catch (error) {
+                    console.error('Error loading anomalies:', error);
+                } finally {
+                    setLoading(false);
+                }
+            };
+
+            useEffect(() => {
+                loadAnomalies();
+                
+                // Set up polling interval
+                const interval = setInterval(loadAnomalies, pollInterval);
+                
+                // Cleanup interval on unmount
+                return () => clearInterval(interval);
+            }, [limit, pollInterval]);
+
+            const getSeverityColor = (severity) => {
+                const colors = {
+                    1: '#10b981', 2: '#f59e0b', 3: '#ef4444', 4: '#dc2626', 5: '#7c2d12'
+                };
+                return colors[severity] || '#f59e0b';
+            };
+
+            const formatAnomalyType = (type) => {
+                return type.replace(/_/g, ' ').toUpperCase();
+            };
+
+            const resolveAnomaly = async (anomalyId) => {
+                try {
+                    const csrfToken = document.querySelector('meta[name="csrf-token"]')?.getAttribute('content');
+                    const response = await fetch(`/api/v1/anomaly_detections/${anomalyId}/resolve`, {
+                        method: 'PATCH',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'X-CSRF-Token': csrfToken
+                        }
+                    });
+
+                    if (response.ok) {
+                        setAnomalies(prev => prev.filter(anomaly => anomaly.id !== anomalyId));
+                    }
+                } catch (error) {
+                    console.error('Error resolving anomaly:', error);
+                }
+            };
+
+            if (loading) {
+                return h('div', { className: 'loading' }, 'Loading anomalies...');
+            }
+
+            if (anomalies.length === 0) {
+                return h('div', { className: 'empty-state' }, '🎉 No unresolved anomalies!');
+            }
+
+            return h('div', { className: 'anomaly-list' },
+                anomalies.map(anomaly =>
+                    h('div', { key: anomaly.id, className: 'anomaly-item' },
+                        h('div', { className: 'anomaly-header' },
+                            h('div', { 
+                                className: 'anomaly-severity',
+                                style: { borderLeft: `4px solid ${getSeverityColor(anomaly.severity)}` }
+                            }, `${anomaly.severity_label} Severity`),
+                            h('button', { 
+                                className: 'resolve-btn',
+                                onClick: () => resolveAnomaly(anomaly.id),
+                                title: 'Mark as resolved'
+                            }, '✓')
+                        ),
+                        h('div', { className: 'anomaly-content' },
+                            h('h5', null, formatAnomalyType(anomaly.type)),
+                            h('p', null, anomaly.description),
+                            anomaly.transaction_id && h('small', { className: 'anomaly-meta' },
+                                `Transaction ID: ${anomaly.transaction_id}`
+                            )
+                        )
+                    )
+                )
+            );
+        };
+
+        // SpendingSummary Component
+        const SpendingSummary = ({ pollInterval = 30000 }) => {
+            const [spendingData, setSpendingData] = useState([]);
+            const [loading, setLoading] = useState(true);
+            const [chartInstance, setChartInstance] = useState(null);
+            const [lastUpdate, setLastUpdate] = useState(null);
+
+            const colors = [
+                '#3b82f6', '#ef4444', '#10b981', '#f59e0b', '#8b5cf6',
+                '#06b6d4', '#84cc16', '#f97316', '#ec4899', '#6b7280'
+            ];
+
+            const loadSpendingData = async () => {
+                try {
+                    setLoading(true);
+                    // Add cache-busting parameter to ensure fresh data
+                    const cacheBuster = Date.now();
+                    const response = await fetch(`/api/v1/dashboard/statistics?_cb=${cacheBuster}`, {
+                        headers: {
+                            'Cache-Control': 'no-cache',
+                            'Pragma': 'no-cache'
+                        }
+                    });
+                    const data = await response.json();
+                    const categoryBreakdown = data.statistics.category_breakdown || [];
+                    
+                    setSpendingData(categoryBreakdown);
+                    setLastUpdate(new Date());
+                } catch (error) {
+                    console.error('Error loading spending data:', error);
+                } finally {
+                    setLoading(false);
+                }
+            };
+
+            useEffect(() => {
+                loadSpendingData();
+                
+                // Set up polling interval
+                const interval = setInterval(loadSpendingData, pollInterval);
+                
+                // Cleanup interval on unmount
+                return () => clearInterval(interval);
+            }, [pollInterval]);
+
+            useEffect(() => {
+                if (!loading && spendingData.length > 0) {
+                    createChart();
+                }
+                
+                // Cleanup chart on unmount
+                return () => {
+                    if (chartInstance) {
+                        chartInstance.destroy();
+                    }
+                };
+            }, [spendingData, loading]);
+
+            const createChart = () => {
+                const ctx = document.getElementById('spendingChart');
+                if (!ctx) return;
+
+                // Destroy existing chart if it exists
+                if (chartInstance) {
+                    chartInstance.destroy();
+                }
+
+                const sortedData = [...spendingData].sort((a, b) => b.total_amount - a.total_amount);
+                
+                const newChart = new Chart(ctx, {
+                    type: 'doughnut',
+                    data: {
+                        labels: sortedData.map(item => item.category),
+                        datasets: [{
+                            data: sortedData.map(item => item.total_amount),
+                            backgroundColor: colors.slice(0, sortedData.length),
+                            borderColor: '#ffffff',
+                            borderWidth: 2
+                        }]
+                    },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        plugins: {
+                            legend: {
+                                display: false
+                            },
+                            tooltip: {
+                                callbacks: {
+                                    label: function(context) {
+                                        const total = context.dataset.data.reduce((a, b) => a + b, 0);
+                                        const percentage = ((context.raw / total) * 100).toFixed(1);
+                                        return `${context.label}: ${formatCurrency(context.raw)} (${percentage}%)`;
+                                    }
+                                }
+                            }
+                        },
+                        cutout: '60%'
+                    }
+                });
+
+                setChartInstance(newChart);
+            };
+
+            if (loading) {
+                return h('div', { className: 'spending-summary' },
+                    h('h3', null, '📊 Spending Summary by Category'),
+                    h('div', { className: 'empty-chart' }, 'Loading spending data...')
+                );
+            }
+
+            if (spendingData.length === 0) {
+                return h('div', { className: 'spending-summary' },
+                    h('h3', null, '📊 Spending Summary by Category'),
+                    h('div', { className: 'empty-chart' }, '📈 No spending data available')
+                );
+            }
+
+            const sortedData = [...spendingData].sort((a, b) => b.total_amount - a.total_amount);
+            const totalSpending = sortedData.reduce((sum, item) => sum + item.total_amount, 0);
+
+            return h('div', { className: 'spending-summary' },
+                h('h3', null, '📊 Spending Summary by Category'),
+                h('div', { className: 'spending-grid' },
+                    h('div', { className: 'chart-section' },
+                        h('div', { className: 'chart-container' },
+                            h('canvas', { id: 'spendingChart' })
+                        ),
+                        h('div', { style: { textAlign: 'center', marginTop: '1rem' } },
+                            h('strong', { style: { fontSize: '1.2rem', color: '#374151' } },
+                                `Total Spending: ${formatCurrency(totalSpending)}`
+                            )
+                        )
+                    ),
+                    h('div', { className: 'legend-section' },
+                        h('h4', { style: { margin: '0 0 1rem 0', color: '#374151' } }, 'Category Breakdown'),
+                        sortedData.map((item, index) => {
+                            const percentage = ((item.total_amount / totalSpending) * 100).toFixed(1);
+                            return h('div', { 
+                                key: item.category, 
+                                className: 'category-item',
+                                style: { borderLeftColor: colors[index] }
+                            },
+                                h('div', { className: 'category-info' },
+                                    h('div', { className: 'category-name' }, item.category),
+                                    h('div', { className: 'category-count' }, 
+                                        `${item.count} transaction${item.count !== 1 ? 's' : ''} • ${percentage}%`
+                                    )
+                                ),
+                                h('div', { className: 'category-amount' }, 
+                                    formatCurrency(item.total_amount)
+                                )
+                            );
+                        })
+                    )
+                )
+            );
+        };
+
+        // Main Dashboard Component
+        const Dashboard = () => {
+            const [stats, setStats] = useState({
+                transactions: 0, categories: 0, anomalies: 0, rules: 0
+            });
+            const [loading, setLoading] = useState(true);
+            const [lastUpdate, setLastUpdate] = useState(null);
+            const [pollingEnabled, setPollingEnabled] = useState(true);
+
+            const loadStats = async () => {
+                try {
+                    setLoading(true);
+                    // Add cache-busting parameter to ensure fresh data
+                    const cacheBuster = Date.now();
+                    const response = await fetch(`/api/v1/dashboard/statistics?_cb=${cacheBuster}`, {
+                        headers: {
+                            'Cache-Control': 'no-cache',
+                            'Pragma': 'no-cache'
+                        }
+                    });
+                    const data = await response.json();
+                    const stats = data.statistics;
+
+                    setStats({
+                        transactions: stats.total_transactions || 0,
+                        categories: stats.categories_count || 0,
+                        anomalies: stats.unresolved_anomalies || 0,
+                        rules: stats.active_rules || 0
+                    });
+                    setLastUpdate(new Date());
+                } catch (error) {
+                    console.error('Error loading stats:', error);
+                } finally {
+                    setLoading(false);
+                }
+            };
+
+            useEffect(() => {
+                loadStats();
+                
+                if (pollingEnabled) {
+                    // Set up polling interval for stats (every 30 seconds)
+                    const interval = setInterval(loadStats, 30000);
+                    
+                    // Cleanup interval on unmount
+                    return () => clearInterval(interval);
+                }
+            }, [pollingEnabled]);
+
+            const refreshDashboard = () => {
+                loadStats();
+            };
+
+            const togglePolling = () => {
+                setPollingEnabled(!pollingEnabled);
+            };
+
+            const formatLastUpdate = (date) => {
+                if (!date) return 'Never';
+                return date.toLocaleTimeString('en-US', { 
+                    hour12: false,
+                    hour: '2-digit',
+                    minute: '2-digit',
+                    second: '2-digit'
+                });
+            };
+
+            return h('div', { className: 'dashboard' },
+                h('div', { className: 'dashboard-header' },
+                    h('div', { className: 'header-content' },
+                        h('div', null,
+                            h('h1', null, '📊 Bookkeeping System'),
+                            h('p', null, 'Automated Transaction Management & Anomaly Detection')
+                        ),
+                        h('div', { className: 'polling-controls' },
+                            h('div', { className: 'polling-status' },
+                                h('span', { className: `status-indicator ${pollingEnabled ? 'active' : 'inactive'}` }),
+                                h('span', null, pollingEnabled ? 'Auto-refresh: ON' : 'Auto-refresh: OFF'),
+                                h('small', null, `Last updated: ${formatLastUpdate(lastUpdate)}`)
+                            ),
+                            h('div', { className: 'polling-buttons' },
+                                h('button', { 
+                                    onClick: togglePolling, 
+                                    className: `polling-toggle ${pollingEnabled ? 'active' : 'inactive'}`,
+                                    title: pollingEnabled ? 'Disable auto-refresh' : 'Enable auto-refresh'
+                                }, pollingEnabled ? '⏸️' : '▶️'),
+                                h('button', { 
+                                    onClick: refreshDashboard, 
+                                    className: 'refresh-btn',
+                                    title: 'Refresh now'
+                                }, '🔄')
+                            )
+                        )
+                    )
+                ),
+                h('div', { className: 'dashboard-container' },
+                    h(StatsCards, { stats, loading }),
+                    h('div', { className: 'dashboard-grid' },
+                        h('div', { className: 'panel' },
+                            h('div', { className: 'panel-header' },
+                                h('h3', null, 'Recent Transactions')
+                            ),
+                            h('div', { className: 'panel-content' },
+                                h(TransactionList, { limit: 5 })
+                            )
+                        ),
+                        h('div', { className: 'panel' },
+                            h('div', { className: 'panel-header' },
+                                h('h3', null, 'Active Anomalies')
+                            ),
+                            h('div', { className: 'panel-content' },
+                                h(AnomalyList, { limit: 5 })
+                            )
+                        )
+                    ),
+                    h('div', { style: { display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '2rem' } },
+                        h('div', { className: 'actions-panel' },
+                            h('h3', null, '🚀 Quick Actions'),
+                            h('div', { className: 'action-buttons' },
+                                h('a', { href: '/upload', className: 'action-btn primary' }, '📁 Import CSV Transactions'),
+                                h('a', { href: '/review', className: 'action-btn warning' }, '🚨 Review Flagged Transactions'),
+                                h('a', { href: '/rules', className: 'action-btn rules' }, '⚙️ Manage Rules'),
+                                h('a', { href: '/categories', className: 'action-btn categories' }, '📂 Manage Categories'),
+                                h('button', { onClick: refreshDashboard, className: 'action-btn secondary' }, '🔄 Refresh Dashboard')
+                            )
+                        ),
+                        h('div', { className: 'actions-panel' },
+                            h('h3', null, '🔗 API Endpoints'),
+                            h('div', { className: 'api-links' },
+                                h('a', { href: '/api/v1/transactions', target: '_blank' }, 'View All Transactions'),
+                                h('a', { href: '/api/v1/categories', target: '_blank' }, 'View Categories'),
+                                h('a', { href: '/api/v1/anomaly_detections?unresolved=true', target: '_blank' }, 'View Unresolved Anomalies'),
+                                h('a', { href: '/api/v1/rules', target: '_blank' }, 'View Active Rules')
+                            )
+                        )
+                    ),
+                    h(SpendingSummary, { pollInterval: 30000 })
+                )
+            );
+        };
+
+        // Render the app
+        const container = document.getElementById('react-app');
+        const root = ReactDOM.createRoot(container);
+        root.render(h(Dashboard));
+    </script>
+</body>
+</html>

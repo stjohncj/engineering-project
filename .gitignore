@@ -1,0 +1,73 @@
+# Ignore bundler config.
+/.bundle
+
+# Ignore all environment files (except templates).
+/.env*
+!/.env*.erb
+
+# Ignore all logfiles and tempfiles.
+/log/*
+/tmp/*
+!/log/.keep
+!/tmp/.keep
+
+# Ignore pidfiles, but keep the directory.
+/tmp/pids/*
+!/tmp/pids/
+!/tmp/pids/.keep
+
+# Ignore storage (uploaded files in development and any SQLite databases).
+/storage/*
+!/storage/.keep
+/tmp/storage/*
+!/tmp/storage/
+!/tmp/storage/.keep
+
+# Ignore master key for decrypting credentials and more.
+/config/master.key
+
+# Database files
+*.sqlite3
+*.sqlite3-*
+db/*.sqlite3
+db/*.sqlite3-*
+
+# Editor and system files
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+*.swp
+*.swo
+*~
+
+# IDE files
+.vscode/
+.idea/
+*.sublime-project
+*.sublime-workspace
+*.code-workspace
+
+# Bootsnap cache
+/tmp/cache/bootsnap/
+
+# Node modules and frontend dependencies (if any)
+node_modules/
+/app/assets/builds/*
+!/app/assets/builds/.keep
+
+# Coverage and test results
+coverage/
+.coverage
+.rspec_status
+.byebug_history
+
+# Old Rails test files (we use RSpec)
+test/
+
+# Sample/test data files (optional - you might want to keep these)
+sample_transactions.csv
+test_transactions.csv

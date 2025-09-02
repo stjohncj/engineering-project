@@ -1,0 +1,107 @@
+version: '3.8'
+
+services:
+  postgres:
+    image: postgres:16
+    environment:
+      POSTGRES_DB: engineering_project_development
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: password
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./db/init:/docker-entrypoint-initdb.d
+    ports:
+      - "5432:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  redis:
+    image: redis:7-alpine
+    command: redis-server --appendonly yes --maxmemory 256mb --maxmemory-policy allkeys-lru
+    volumes:
+      - redis_data:/data
+    ports:
+      - "6379:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  app:
+    build: 
+      context: .
+      dockerfile: Dockerfile
+    environment:
+      DATABASE_URL: postgres://postgres:password@postgres:5432/engineering_project_development
+      REDIS_URL: redis://redis:6379/0
+      RAILS_ENV: development
+      RAILS_LOG_LEVEL: debug
+      QUERY_WARNING_THRESHOLD: 5
+      SLOW_REQUEST_THRESHOLD: 500
+      MONITORING_SERVICE_ENABLED: true
+      RAILS_MASTER_KEY_FILE: /rails/config/master.key
+    volumes:
+      - .:/rails
+      - bundle_cache:/usr/local/bundle
+      - ./log:/rails/log
+      - ./tmp:/rails/tmp
+    ports:
+      - "3000:80"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    stdin_open: true
+    tty: true
+    command: ["./bin/rails", "server", "-b", "0.0.0.0", "-p", "80"]
+
+  worker:
+    build: 
+      context: .
+      dockerfile: Dockerfile.worker
+    environment:
+      DATABASE_URL: postgres://postgres:password@postgres:5432/engineering_project_development
+      REDIS_URL: redis://redis:6379/0
+      RAILS_ENV: development
+      RAILS_LOG_LEVEL: debug
+      QUERY_WARNING_THRESHOLD: 15
+      SLOW_QUERY_THRESHOLD: 1000
+      MONITORING_SERVICE_ENABLED: true
+      WORKER_PROCESSES: 2
+      WORKER_TIMEOUT: 300
+      RAILS_MASTER_KEY_FILE: /rails/config/master.key
+    volumes:
+      - .:/rails
+      - bundle_cache:/usr/local/bundle
+      - ./log:/rails/log
+      - ./tmp:/rails/tmp
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      app:
+        condition: service_started
+    command: ["./bin/rails", "solid_queue:start"]
+
+  # Optional: Redis monitoring
+  redis-commander:
+    image: rediscommander/redis-commander:latest
+    environment:
+      REDIS_HOSTS: local:redis:6379
+    ports:
+      - "8081:8081"
+    depends_on:
+      - redis
+    profiles:
+      - monitoring
+
+volumes:
+  postgres_data:
+  redis_data:
+  bundle_cache:
